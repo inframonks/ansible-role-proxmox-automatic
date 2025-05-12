@@ -26,5 +26,6 @@ proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch
 proxmox_automatic_repos:
   - { name: "BaseOS", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever", cost: 0 }
   - { name: "AppStream", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=AppStream-$releasever", cost: 0 }
-  - { name: "EPEL", baseurl: "https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/", cost: 0 }
   - { name: "Extras", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever", cost: 0 }
+  - { name: "CRB", mirrorlist: "https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$releasever$rltype", cost: 0 }
+  - { name: "EPEL", baseurl: "https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/", cost: 0 }
