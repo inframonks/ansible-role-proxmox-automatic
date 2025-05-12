@@ -1,0 +1,8 @@
+---
+- name: "Kickstart ISO erstellen und hochladen"
+  ansible.builtin.import_tasks: create_kickstart.yml
+  tags: kickstart
+
+- name: "VMs auf Proxmox erstellen"
+  ansible.builtin.import_tasks: create_vm.yml
+  tags: create_vm

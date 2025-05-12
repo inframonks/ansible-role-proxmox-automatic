@@ -1,0 +1,46 @@
+---
+- name: "Kickstart | Generate required directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ proxmox_automatic_files_dir }}"
+    - "{{ proxmox_automatic_iso_dir }}"
+  delegate_to: localhost
+  tags: kickstart
+
+- name: "Kickstart | Generate kickstart file for host"
+  ansible.builtin.template:
+    src: "kickstart.cfg.j2"
+    dest: "{{ proxmox_automatic_files_dir }}/ks-{{ inventory_hostname }}.cfg"
+    mode: "0644"
+  delegate_to: localhost
+  register: __create_kickstart_file
+  tags: kickstart
+
+- name: "Kickstart | Generate ISO file for host"
+  ansible.builtin.command: >
+    xorriso -as mkisofs
+    -o {{ proxmox_automatic_iso_dir }}/ks-{{ inventory_hostname }}.iso
+    -V KS_{{ inventory_hostname }}
+    -J -R
+    -graft-points ks.cfg={{ proxmox_automatic_files_dir }}/ks-{{ inventory_hostname }}.cfg
+  args:
+    creates: "{{ proxmox_automatic_iso_dir }}/ks-{{ inventory_hostname }}.iso"
+  delegate_to: localhost
+  when: __create_kickstart_file is changed
+  tags: kickstart
+
+- name: "Kickstart | Upload ISO to Proxmox"
+  proxmox_automatic_upload_iso:
+    api_host: "{{ proxmox_automatic_hypervisor }}"
+    api_user: "{{ proxmox_automatic_api_user }}"
+    api_password: "{{ proxmox_automatic_api_password }}"
+    storage: "{{ proxmox_automatic_pve_iso_storage }}"
+    node: "{{ proxmox_automatic_hypervisor.split('.')[0] }}"
+    iso_path: "{{ proxmox_automatic_iso_dir }}/ks-{{ inventory_hostname }}.iso"
+    iso_name: "ks-{{ inventory_hostname }}.iso"
+  delegate_to: localhost
+  when: __create_kickstart_file is changed
+  tags: kickstart

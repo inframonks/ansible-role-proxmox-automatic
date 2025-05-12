@@ -1,0 +1,30 @@
+---
+proxmox_automatic_files_dir: "kickstart-files"
+proxmox_automatic_iso_dir: "kickstart-isos"
+# VM Deployment Configuration
+proxmox_automatic_os: rocky9
+proxmox_automatic_first_disk_size: "20"  # IN GB
+proxmox_automatic_pve_iso_storage: "cephfs"
+proxmox_automatic_pve_vm_storage: "volumes"
+proxmox_automatic_defaultbridge: "vmbr1"
+# Api Access
+proxmox_automatic_api_user: svc_ansible_rw@pam
+proxmox_automatic_api_password: "<filleme>"
+# Kickstart Configuration
+proxmox_automatic_timezone: "Europe/Berlin"
+proxmox_automatic_ntp_servers:
+  - "time.cloduflare.com"
+proxmox_automatic_dns_servers:
+  - "1.0.0.1"
+  - "1.1.1.1"
+proxmox_automatic_admin_user: "svc_ansible_rw"
+proxmox_automatic_admin_password: "<filleme>"
+proxmox_automatic_admin_ssh_key: "<fille with publickey>"
+proxmox_automatic_admin_gecos: "Ansible Serviceaccount"
+#proxmox_automatic_url_baseurl: ""
+proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
+proxmox_automatic_repos:
+  - { name: "BaseOS", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever", cost: 0 }
+  - { name: "AppStream", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=AppStream-$releasever", cost: 0 }
+  - { name: "EPEL", baseurl: "https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/", cost: 0 }
+  - { name: "Extras", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever", cost: 0 }

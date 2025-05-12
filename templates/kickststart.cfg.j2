@@ -1,0 +1,96 @@
+
+# PRE-INSTALLATION SCRIPT
+%pre --interpreter=/usr/bin/bash --log=/root/anaconda-ks-pre.log
+%end
+
+# INSTALL USING TEXT MODE
+text
+
+# KEYBOARDS, LANGUAGES, TIMEZONE
+keyboard --vckeymap=de --xlayouts='de (nodeadkeys)','us'
+lang en_US.UTF-8
+timezone {{ proxmox_automatic_timezone | default("Europe/Berlin") }} --utc
+{% if proxmox_automatic_ntp_servers and proxmox_automatic_ntp_servers != "" %}
+{% for ntp in proxmox_automatic_ntp_servers %}
+timesource --ntp-server {{ ntp }}
+{% endfor %}
+{% endif %}
+
+# NETWORK, SELINUX, FIREWALL
+# Set network only on first interface, and set hostname.
+network --bootproto=static --onboot=on --ip={{ network[0].ip }} --netmask={{ network[0].netmask }} --gateway={{ network[0].gateway }} --nameserver={{ proxmox_automatic_dns_servers | join(',') }} --hostname={{ item }}
+selinux --enforcing
+firewall --enabled --ssh
+
+firstboot --disable
+
+# DISKS, PARTITIONS, VOLUME GROUPS, LOGICAL VOLUMES
+# Install target is usually sda, vda, or nvme0n1; adjust all references below accordingly.
+# The EFI & /boot partitions are explicitly set here, but some people just use `reqpart`.
+ignoredisk --only-use=vda
+zerombr
+
+# First disk
+clearpart --all --initlabel --disklabel=gpt --drives=vda
+bootloader --location=mbr --boot-drive=vda --append='rootdelay=300 console=ttyS0 no_timer_check crashkernel=auto'
+part pv.root     --label=volumes  --size=1024  --grow         --asprimary  --ondisk=vda
+part /boot/efi   --label=efi      --size=1024  --fstype=efi   --asprimary
+part /boot       --label=boot     --size=1024  --fstype=ext4  --asprimary
+volgroup system pv.root
+logvol swap      --label=swap     --size=2048               --vgname=system --name=swap
+logvol /         --label=root     --size=10180 --fstype=xfs --vgname=system --name=root
+logvol /var/log  --label=log      --size=4096  --fstype=xfs --vgname=system --name=log
+
+
+# INSTALLATION SOURCE, EXTRA REPOSITOROIES, PACKAGE GROUPS, PACKAGES
+# Installation Source
+{% if proxmox_automatic_url_mirrorlist is defined %}
+url --mirrorlist="{{ proxmox_automatic_url_mirrorlist }}"
+{% endif %}
+{% if proxmox_automatic_url_baseos is defined %}
+url --baseurl="{{ proxmox_automatic_url_baseos }}"
+{% endif %}
+
+# Repositories - Automatisch per Schleife eingefügt
+{% for repo in proxmox_automatic_repos %}
+repo --name={{ repo.name }}{% if repo.mirrorlist is defined %} --mirrorlist={{ repo.mirrorlist }}{% endif %}{% if repo.baseurl is defined %} --baseurl={{ repo.baseurl }}{% endif %}{% if repo.cost is defined %} --cost={{ repo.cost }}{% endif %}
+
+{% endfor %}
+
+# Extras repository is needed to install `epel-release` package.
+# Remove `@guest-agents` group if this is not a VM.
+%packages --retries=5 --timeout=20 --inst-langs=en
+@^minimal-environment
+qemu-guest-agent
+epel-release
+kernel-devel
+openssh-server
+%end
+
+# GROUPS, USERS, ENABLE SSH, FINISH INSTALL
+rootpw --lock
+# Create user '{{ proxmox_automatic_admin_user }}' and group '{{ proxmox_automatic_admin_user }}' (with GID 1000), make it myuser's primary group, and add myuser to administrative 'wheel' group.
+user --name={{ proxmox_automatic_admin_user }} --password='{{ proxmox_automatic_admin_password }}' --plaintext --gecos='{{ proxmox_automatic_admin_gecos }}' --groups='wheel,{{ proxmox_automatic_admin_user }}(1000)' --gid=1000
+{% if proxmox_automatic_admin_ssh_key and proxmox_automatic_admin_ssh_key != "" %}
+sshkey --username={{ proxmox_automatic_admin_user }} '{{ proxmox_automatic_admin_ssh_key }}'
+{% endif %}
+services --enabled='sshd.service,rsyslog,chronyd,NetworkManager'
+reboot --eject
+
+# ENABLE EMERGENCY KERNEL DUMPS FOR DEBUGGING
+%addon com_redhat_kdump --reserve-mb=auto --enable
+%end
+
+# POST-INSTALLATION SCRIPT
+%post --interpreter=/usr/bin/bash --log=/root/anaconda-ks-post.log --erroronfail
+# Enable CodeReady Builder repo (requires `epel-release` package).
+/usr/bin/dnf config-manager --set-enabled crb
+
+# Sudoers Datei erstellen (User braucht kein Passwort für sudo)
+echo "{{ proxmox_automatic_admin_user }} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
+chmod 440 /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
+
+# Install EPEL Packages
+/usr/bin/dnf -y install -y vim htop tmux git wget curl jq bind-utils net-tools lsof strace tcpdump nmap-ncat telnet nc iperf3 bash-completion
+
+%end
