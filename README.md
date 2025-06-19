@@ -28,7 +28,7 @@ Es wird ein eigenes Plugin für den Upload der ISO-Dateien auf den Proxmox-Serve
 |------------------------------------------|------------------------------------------------------------|------------------------------------------|
 | `proxmox_automatic_files_dir`            | Verzeichnis für Kickstart-Dateien                          | `"kickstart-files"`                      |
 | `proxmox_automatic_iso_dir`              | Verzeichnis für erzeugte ISO-Dateien                       | `"kickstart-isos"`                       |
-| `proxmox_automatic_os`                   | Zielbetriebssystem                                         | `"rocky9"`                               |
+| `proxmox_automatic_iso_name`             | Iso Datei ohne .iso am Ende                                | `"rocky9.6"`                             |
 | `proxmox_automatic_first_disk_size`      | Größe der ersten Festplatte (in GB)                        | `"20G"`                                  |
 | `proxmox_automatic_storage`              | Standard-Storage (für VM & ISO)                            | `proxmox_automatic_pve_vm_storage`       |
 | `proxmox_automatic_pve_iso_storage`      | Storage für ISOs in Proxmox                                | `"cephfs"`                               |
@@ -59,7 +59,7 @@ Es wird ein eigenes Plugin für den Upload der ISO-Dateien auf den Proxmox-Serve
 | `proxmox_automatic_hypervisor`           | Ziel-Hypervisor (Hostname/FQDN)                            | **erforderlich**                         |
 | `proxmox_automatic_memory`               | Arbeitsspeicher (MB)                                       | `2048`                                   |
 | `proxmox_automatic_vcpu`                 | vCPUs                                                      | `2`                                      |
-| `proxmox_automatic_cpu_type`             | CPU-Typ (QEMU)                                             | `"x86-64-v2-AES"`                        |
+| `proxmox_automatic_cpu_type`             | CPU-Typ (QEMU)                                             | `"x86-64-v3"`                        |
 | `proxmox_automatic_sockets`              | CPU-Sockelanzahl                                           | `1`                                      |
 | `proxmox_automatic_state`                | VM-Zustand (`present` / `absent`)                          | `"present"`                              |
 | `proxmox_automatic_storage`              | Manuelles Override des Storage                             | *(leer)*                                 |
@@ -213,10 +213,10 @@ brew install xorriso syslinux
 
 ```bash
 
-curl -LO https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.5-x86_64-boot.iso
+curl -LO https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.6-x86_64-boot.iso
 
 sudo mkdir /mnt/iso
-sudo mount -o loop Rocky-9.5-x86_64-boot.iso /mnt/iso
+sudo mount -o loop Rocky-9.6-x86_64-boot.iso /mnt/iso
 
 mkdir ~/rocky_custom_iso
 sudo rsync -a /mnt/iso/ ~/rocky_custom_iso/
