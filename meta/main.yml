@@ -24,4 +24,4 @@ galaxy_info:
     - virtual_machine
     - kvm
     - qemu
-    - libvirt 
+    - libvirt

@@ -17,11 +17,15 @@ proxmox_automatic_ntp_servers:
 proxmox_automatic_dns_servers:
   - "1.0.0.1"
   - "1.1.1.1"
-proxmox_automatic_admin_user: "svc_ansible_rw"
+proxmox_automatic_admin_user: "admin"
 proxmox_automatic_admin_password: "<filleme>"
 proxmox_automatic_admin_ssh_key: "<fille with publickey>"
-proxmox_automatic_admin_gecos: "Ansible Serviceaccount"
-#proxmox_automatic_url_baseurl: ""
+proxmox_automatic_admin_gecos: "Admin User"
+proxmox_automatic_service_user: "ansible"
+proxmox_automatic_service_password: "<filleme>"
+proxmox_automatic_service_ssh_key: "<fille with publickey>"
+proxmox_automatic_service_gecos: "Ansible Serviceaccount"
+proxmox_automatic_url_baseos: ""
 proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
 proxmox_automatic_repos:
   - { name: "BaseOS", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever", cost: 0 }
@@ -29,3 +33,24 @@ proxmox_automatic_repos:
   - { name: "Extras", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever", cost: 0 }
   - { name: "CRB", mirrorlist: "https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$releasever$rltype", cost: 0 }
   - { name: "EPEL", baseurl: "https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/", cost: 0 }
+
+proxmox_automatic_packages:
+  - qemu-guest-agent
+  - vim
+  - htop
+  - tmux
+  - git
+  - wget
+  - curl
+  - jq
+  - bind-utils
+  - net-tools
+  - lsof
+  - strace
+  - tcpdump
+  - nmap-ncat
+  - telnet
+  - nc
+  - mtr
+  - iperf3
+  - bash-completion

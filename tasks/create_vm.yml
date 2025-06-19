@@ -1,16 +1,15 @@
 ---
-# tasks/main.yml
-- name: "Erstelle VM {{ inventory_hostname }}"
+- name: "Create VM"
   community.general.proxmox_kvm:
-    api_host: "{{ proxmox_automatic_hypervisor }}"
+    api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"
-    node: "{{ proxmox_automatic_hypervisor.split('.')[0] }}"
+    node: "{{ proxmox_automatic_hypervisor }}"
     vmid: "{{ proxmox_automatic_vmid }}"
     name: "{{ inventory_hostname }}"
     memory: "{{ proxmox_automatic_memory | default(2048) }}"
     cores: "{{ proxmox_automatic_vcpu | default(2) }}"
-    cpu: "{{ proxmox_automatic_cpu_type | default('x86-64-v3') }}"
+    cpu: "{{ proxmox_automatic_cpu_type | default('x86-64-v2-AES') }}"
     sockets: "{{ proxmox_automatic_sockets | default(1) }}"
     state: "{{ proxmox_automatic_state | default('present') }}"
     ide:
@@ -25,23 +24,23 @@
     tpmstate0:
       storage: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}"
     virtio:
-      virtio0: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}:{{ proxmox_automatic_first_disk_size | regex_replace('[GM]', '') }},format={{ proxmox_vm_first_disk_format | default('qcow2') }}"
+      virtio0: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}:{{ proxmox_automatic_first_disk_size | regex_replace('[GM]', '') }}"
     net:
-      net0: "virtio{% if proxmox_automatic_network[0].mac is defined %}={{ proxmox_automatic_network[0].mac }}{% else %},{% endif %},bridge={{ proxmox_automatic_network[0].bridge | default(proxmox_automatic_defaultbridge) }},tag={{ proxmox_automatic_network[0].vlanid }}{% if proxmox_automatic_network[0].mtu is defined %},{{ proxmox_automatic_network[0].mtu }}{% endif %}"
+      net0: "virtio{% if proxmox_automatic_networks[0].mac is defined %}={{ proxmox_automatic_networks[0].mac }}{% else %},{% endif %},bridge={{ proxmox_automatic_networks[0].bridge | default(proxmox_automatic_defaultbridge) }},tag={{ proxmox_automatic_networks[0].vlanid }}{% if proxmox_automatic_networks[0].mtu is defined %},{{ proxmox_automatic_networks[0].mtu }}{% endif %}"
     kvm: "{{ proxmox_automatic_kvm | default(true) }}"
     ostype: "{{ proxmox_automatic_os_type | default('l26') }}"
     onboot: "{{ proxmox_automatic_onboot | default(true) }}"
     scsihw: "{{ proxmox_automatic_scsi_hw | default('virtio-scsi-single') }}"
     machine: "{{ proxmox_automatic_machine | default('q35') }}"
     hotplug: "{{ proxmox_automatic_hotplug | default('disk') }}"
-    startup: "order={{ proxmox_automatic_boot_order | default(1) }},proxmox_automatic_up={{ boot_order_up_wait | default(3) }},proxmox_automatic_down={{ boot_order_down_wait | default(3) }}"
+    startup: "order={{ proxmox_automatic_boot_order | default(1) }},up={{ proxmox_automatic_boot_order_up_wait | default(3) }},down={{ proxmox_automatic_boot_order_down_wait | default(3) }}"
     agent: enabled=1
+    pool: "{{ proxmox_automatic_vm_pool | default(omit) }}"
   delegate_to: localhost
-  tags: create_vm
 
 - name: "Add additional disks"
   community.general.proxmox_disk:
-    api_host: "{{ proxmox_automatic_hypervisor }}"
+    api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"
     vmid: "{{ proxmox_automatic_vmid }}"
@@ -52,37 +51,34 @@
   loop_control:
     label: "{{ proxmox_automatic_hypervisor }} - {{ item.name }}"
   delegate_to: localhost
-  tags: create_vm
-  when: disks is defined and disks | length > 0
+  when: proxmox_automatic_disks is defined and proxmox_automatic_disks | length > 0
 
 - name: "Add additional network adapters"
   community.general.proxmox_nic:
-    api_host: "{{ proxmox_automatic_hypervisor }}"
+    api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"
     vmid: "{{ proxmox_automatic_vmid }}"
     interface: "{{ item.name }}"
-    bridge: "{{ item.bridge | default('vmbr1') }}"
+    bridge: "{{ item.bridge | default('vmbr2') }}"
     tag: "{{ item.vlanid | default(0) }}"
     model: "{{ item.model | default('virtio') }}"
     mac: "{{ item.mac | default(omit) }}"
     mtu: "{{ item.mtu | default(omit) }}"
     rate: "{{ item.rate | default(omit) }}"
     state: "present"
-  loop: "{{ proxmox_automatic_network | default([]) }}"
+  loop: "{{ proxmox_automatic_networks | default([]) }}"
   loop_control:
     label: "{{ proxmox_automatic_hypervisor }} - {{ item.name }}"
   delegate_to: localhost
-  tags: create_vm
-  when: network is defined and network | length > 0
+  when: proxmox_automatic_networks is defined and proxmox_automatic_networks | length > 0
 
-- name: "Start virtual machine"
+- name: "Start VM"
   community.general.proxmox_kvm:
-    api_host: "{{ proxmox_automatic_hypervisor }}"
+    api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"
-    node: "{{ proxmox_automatic_hypervisor.split('.')[0] }}"
+    node: "{{ proxmox_automatic_hypervisor }}"
     vmid: "{{ proxmox_automatic_vmid }}"
     state: "started"
   delegate_to: localhost
-  tags: create_vm

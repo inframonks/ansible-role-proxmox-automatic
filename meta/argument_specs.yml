@@ -1,0 +1,208 @@
+argument_specs:
+  main:
+    short_description: "Automatisiertes VM-Provisioning mit Kickstart-ISO auf Proxmox VE"
+    description: >
+      Diese Rolle erzeugt individuelle Kickstart-Dateien und ISOs,
+      lädt sie auf einen Proxmox-Node hoch und provisioniert eine VM
+      inklusive zusätzlicher Disks und Netzwerkkarten.
+    options:
+      proxmox_automatic_files_dir:
+        type: str
+        default: "kickstart-files"
+        description: "Pfad für Kickstart-Dateien"
+      proxmox_automatic_iso_dir:
+        type: str
+        default: "kickstart-isos"
+        description: "Pfad für erzeugte ISO-Dateien"
+      proxmox_automatic_os:
+        type: str
+        default: "rocky9"
+        description: "Betriebssystembezeichnung (z. B. rocky9)"
+      proxmox_automatic_first_disk_size:
+        type: str
+        default: "20"
+        description: "Größe der ersten Festplatte in GB (nur Zahl)"
+      proxmox_automatic_pve_iso_storage:
+        type: str
+        default: "cephfs"
+        description: "Proxmox Storage für ISOs"
+      proxmox_automatic_pve_vm_storage:
+        type: str
+        default: "volumes"
+        description: "Proxmox Storage für VM-Festplatten"
+      proxmox_automatic_defaultbridge:
+        type: str
+        default: "vmbr1"
+        description: "Standard-Bridge für Netzwerkkarten"
+      proxmox_automatic_api_host:
+        type: str
+        required: true
+        description: "FQDN oder IP des Proxmox API-Hosts"
+      proxmox_automatic_api_user:
+        type: str
+        default: "svc_ansible_rw@pam"
+        description: "Benutzername für Proxmox API"
+      proxmox_automatic_api_password:
+        type: str
+        required: true
+        description: "Passwort für Proxmox API"
+      proxmox_automatic_timezone:
+        type: str
+        default: "Europe/Berlin"
+        description: "Zeitzone der VM"
+      proxmox_automatic_ntp_servers:
+        type: list
+        elements: str
+        default: ["ntp.atis-systems.com"]
+        description: "Liste von NTP-Servern"
+      proxmox_automatic_dns_servers:
+        type: list
+        elements: str
+        default: ["192.168.193.104", "192.168.193.105"]
+        description: "Liste von DNS-Servern"
+      proxmox_automatic_admin_user:
+        type: str
+        default: "svc_ansible_rw"
+        description: "Admin-User, der im Zielsystem erstellt wird"
+      proxmox_automatic_admin_password:
+        type: str
+        required: true
+        description: "Passwort für den Admin-User"
+      proxmox_automatic_admin_ssh_key:
+        type: str
+        required: true
+        description: "SSH Public Key für den Admin-User"
+      proxmox_automatic_admin_gecos:
+        type: str
+        default: "ATIS Admin"
+        description: "Kommentar / GECOS für den Benutzer"
+      proxmox_automatic_url_baseurl:
+        type: str
+        default: ""
+        description: "Basis-URL für Rocky Linux (z. B. http://mirror.example.com/rocky/9/updates/x86_64/Packages/)"
+      proxmox_automatic_url_mirrorlist:
+        type: str
+        default: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
+        description: "Mirrorlist-URL für Rocky Linux BaseOS"
+      proxmox_automatic_repos:
+        type: list
+        elements: dict
+        default: []
+        description: "Liste zusätzlicher Repositories"
+      proxmox_automatic_vmid:
+        type: int
+        required: true
+        description: "Proxmox VM-ID"
+      proxmox_automatic_hypervisor:
+        type: str
+        required: true
+        description: "Proxmox Node (z. B. srv-hyp-01.local)"
+      proxmox_automatic_memory:
+        type: int
+        default: 2048
+        description: "RAM der VM in MB"
+      proxmox_automatic_vcpu:
+        type: int
+        default: 2
+        description: "vCPUs"
+      proxmox_automatic_cpu_type:
+        type: str
+        default: "x86-64-v2-AES"
+        description: "CPU-Typ"
+      proxmox_automatic_sockets:
+        type: int
+        default: 1
+        description: "CPU-Sockelanzahl"
+      proxmox_automatic_state:
+        type: str
+        choices: ["present", "absent"]
+        default: "present"
+        description: "VM-Zustand"
+      proxmox_automatic_storage:
+        type: str
+        required: false
+        description: "Optional: Override Storage für VM und ISO"
+      proxmox_automatic_kvm:
+        type: bool
+        default: true
+        description: "KVM aktivieren"
+      proxmox_automatic_os_type:
+        type: str
+        default: "l26"
+        description: "Betriebssystemtyp"
+      proxmox_automatic_onboot:
+        type: bool
+        default: true
+        description: "Autostart aktivieren"
+      proxmox_automatic_scsi_hw:
+        type: str
+        default: "virtio-scsi-single"
+        description: "SCSI-Controller Typ"
+      proxmox_automatic_machine:
+        type: str
+        default: "q35"
+        description: "Maschinentyp"
+      proxmox_automatic_hotplug:
+        type: str
+        default: "disk"
+        description: "Hotplug-Konfiguration"
+      proxmox_automatic_boot_order:
+        type: int
+        default: 1
+        description: "Startreihenfolge"
+      proxmox_automatic_boot_order_up_wait:
+        type: int
+        default: 3
+        description: "Wartezeit nach Start (s)"
+      proxmox_automatic_boot_order_down_wait:
+        type: int
+        default: 3
+        description: "Wartezeit nach Shutdown (s)"
+      proxmox_automatic_disks:
+        type: list
+        elements: dict
+        default: []
+        description: >
+          Liste zusätzlicher Festplatten (name, size, storage)
+      proxmox_automatic_networks:
+        type: list
+        elements: dict
+        default: []
+        description: >
+          Liste zusätzlicher Netzwerkkarten (bridge, vlanid, mtu, mac, model)
+      proxmox_automatic_vm_pool:
+        type: str
+        default: "omit"
+        description: >
+          Optionaler Pool, in dem die VM eingetragen wird. Wird nur verwendet, wenn angegeben.
+      proxmox_automatic_service_user:
+        type: str
+        default: "ansible"
+        description: >
+          Ansible Serviceaccount, der im Zielsystem erstellt wird.
+      proxmox_automatic_service_password:
+        type: str
+        default: ""
+        description: >
+          Passwort für den Ansible Serviceaccount.
+      proxmox_automatic_service_ssh_key:
+        type: str
+        default: ""
+        description: >
+          SSH Public Key für den Ansible Serviceaccount.
+      proxmox_automatic_service_gecos:
+        type: str
+        default: "Ansible Serviceaccount"
+        description: >
+          Kommentar / GECOS für den Ansible Serviceaccount
+      proxmox_automatic_packages:
+        type: list
+        elements: str
+        default: []
+        description: >
+          Liste von Paketen, die im Kickstart installiert werden sollen.
+      proxmox_automatic_dhcp_enabled:
+        type: bool
+        default: false
+        description: >
+          Aktiviert DHCP für die Netzwerkkonfiguration. Wenn true, werden statische IPs ignoriert.

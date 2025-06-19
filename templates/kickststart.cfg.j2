@@ -18,10 +18,13 @@ timesource --ntp-server {{ ntp }}
 
 # NETWORK, SELINUX, FIREWALL
 # Set network only on first interface, and set hostname.
-network --bootproto=static --onboot=on --ip={{ network[0].ip }} --netmask={{ network[0].netmask }} --gateway={{ network[0].gateway }} --nameserver={{ proxmox_automatic_dns_servers | join(',') }} --hostname={{ item }}
+{% if proxmox_automatic_dhcp_enabled | default(false) %}
+network --bootproto=dhcp --device=eth0 --onboot=on --hostname=plf-tmpl
+{% else %}
+network --bootproto=static --onboot=on --ip={{ proxmox_automatic_networks[0].ip }} --netmask={{ proxmox_automatic_networks[0].netmask }} --gateway={{ proxmox_automatic_networks[0].gateway }} --nameserver={{ proxmox_automatic_dns_servers | join(',') }} --hostname={{ ansible_host }}
+{% endif %}
 selinux --enforcing
 firewall --enabled --ssh
-
 firstboot --disable
 
 # DISKS, PARTITIONS, VOLUME GROUPS, LOGICAL VOLUMES
@@ -30,6 +33,9 @@ firstboot --disable
 ignoredisk --only-use=vda
 zerombr
 
+{% set disk_size_raw = proxmox_automatic_first_disk_size | regex_replace('[^0-9]', '') | int %}
+{% set disk_size_mib = (disk_size_raw * 1024) - 6400 %}
+
 # First disk
 clearpart --all --initlabel --disklabel=gpt --drives=vda
 bootloader --location=mbr --boot-drive=vda --append='rootdelay=300 console=ttyS0 no_timer_check crashkernel=auto'
@@ -37,18 +43,17 @@ part pv.root     --label=volumes  --size=1024  --grow         --asprimary  --ond
 part /boot/efi   --label=efi      --size=1024  --fstype=efi   --asprimary
 part /boot       --label=boot     --size=1024  --fstype=ext4  --asprimary
 volgroup system pv.root
-logvol swap      --label=swap     --size=2048               --vgname=system --name=swap
-logvol /         --label=root     --size=10180 --fstype=xfs --vgname=system --name=root
+logvol /         --label=root     --size={{ disk_size_raw }} --fstype=xfs --vgname=system --name=root
 logvol /var/log  --label=log      --size=4096  --fstype=xfs --vgname=system --name=log
-
+#logvol swap      --label=swap     --size=1024               --vgname=system --name=swap
 
 # INSTALLATION SOURCE, EXTRA REPOSITOROIES, PACKAGE GROUPS, PACKAGES
 # Installation Source
-{% if proxmox_automatic_url_mirrorlist is defined %}
+{% if proxmox_automatic_url_mirrorlist is defined and proxmox_automatic_url_mirrorlist != "" %}
 url --mirrorlist="{{ proxmox_automatic_url_mirrorlist }}"
 {% endif %}
-{% if proxmox_automatic_url_baseos is defined %}
-url --baseurl="{{ proxmox_automatic_url_baseos }}"
+{% if proxmox_automatic_url_baseos is defined and proxmox_automatic_url_baseos != "" %}
+url --url="{{ proxmox_automatic_url_baseos }}"
 {% endif %}
 
 # Repositories - Automatisch per Schleife eingefügt
@@ -57,23 +62,32 @@ repo --name={{ repo.name }}{% if repo.mirrorlist is defined %} --mirrorlist={{ r
 
 {% endfor %}
 
-# Extras repository is needed to install `epel-release` package.
 # Remove `@guest-agents` group if this is not a VM.
 %packages --retries=5 --timeout=20 --inst-langs=en
-@^minimal-environment
-qemu-guest-agent
-epel-release
+@core
 kernel-devel
 openssh-server
+# Add additional packages here
+{% if proxmox_automatic_packages is defined and proxmox_automatic_packages != "" %}
+{{ proxmox_automatic_packages | join('\n') }}
+{% endif %}
 %end
 
 # GROUPS, USERS, ENABLE SSH, FINISH INSTALL
 rootpw --lock
-# Create user '{{ proxmox_automatic_admin_user }}' and group '{{ proxmox_automatic_admin_user }}' (with GID 1000), make it myuser's primary group, and add myuser to administrative 'wheel' group.
+
+{% endif %}
 user --name={{ proxmox_automatic_admin_user }} --password='{{ proxmox_automatic_admin_password }}' --plaintext --gecos='{{ proxmox_automatic_admin_gecos }}' --groups='wheel,{{ proxmox_automatic_admin_user }}(1000)' --gid=1000
 {% if proxmox_automatic_admin_ssh_key and proxmox_automatic_admin_ssh_key != "" %}
 sshkey --username={{ proxmox_automatic_admin_user }} '{{ proxmox_automatic_admin_ssh_key }}'
 {% endif %}
+
+{% if proxmox_automatic_service_user is defined and proxmox_automatic_service_user != "" %}
+user --name={{ proxmox_automatic_service_user }} --password='{{ proxmox_automatic_service_user }}' --plaintext --gecos="Ansible Serviceaccount" --gid=1001
+{% if proxmox_automatic_service_ssh_key and proxmox_automatic_service_ssh_key != "" %}
+sshkey --username={{ proxmox_automatic_service_user }} '{{ proxmox_automatic_service_ssh_key }}'
+{% endif %}
+
 services --enabled='sshd.service,rsyslog,chronyd,NetworkManager'
 reboot --eject
 
@@ -83,14 +97,17 @@ reboot --eject
 
 # POST-INSTALLATION SCRIPT
 %post --interpreter=/usr/bin/bash --log=/root/anaconda-ks-post.log --erroronfail
-# Enable CodeReady Builder repo (requires `epel-release` package).
-/usr/bin/dnf config-manager --set-enabled crb
 
 # Sudoers Datei erstellen (User braucht kein Passwort für sudo)
-echo "{{ proxmox_automatic_admin_user }} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
-chmod 440 /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
+/usr/bin/echo "{{ proxmox_automatic_admin_user }} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
+/usr/bin/chmod 440 /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
 
-# Install EPEL Packages
-/usr/bin/dnf -y install -y vim htop tmux git wget curl jq bind-utils net-tools lsof strace tcpdump nmap-ncat telnet nc iperf3 bash-completion
+{% if proxmox_automatic_service_user is defined and proxmox_automatic_service_user != "" %}
+/usr/bin/echo "{{ proxmox_automatic_service_user }} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user_{{ proxmox_automatic_service_user }}
+/usr/bin/chmod 440 /etc/sudoers.d/user_{{ proxmox_automatic_service_user }}
+{% endif %}
+
+# Install Updates
+/usr/bin/dnf update -y
 
 %end
