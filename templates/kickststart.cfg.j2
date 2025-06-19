@@ -21,7 +21,7 @@ timesource --ntp-server {{ ntp }}
 {% if proxmox_automatic_dhcp_enabled | default(false) %}
 network --bootproto=dhcp --device=eth0 --onboot=on --hostname=plf-tmpl
 {% else %}
-network --bootproto=static --onboot=on --ip={{ proxmox_automatic_networks[0].ip }} --netmask={{ proxmox_automatic_networks[0].netmask }} --gateway={{ proxmox_automatic_networks[0].gateway }} --nameserver={{ proxmox_automatic_dns_servers | join(',') }} --hostname={{ ansible_host }}
+network --bootproto=static --onboot=on --ip={{ proxmox_automatic_networks[0].ip }} --netmask={{ proxmox_automatic_networks[0].netmask }} --gateway={{ proxmox_automatic_networks[0].gateway }} --nameserver={{ proxmox_automatic_dns_servers | join(',') }} --hostname={{ inventory_hostname }}
 {% endif %}
 selinux --enforcing
 firewall --enabled --ssh
@@ -38,22 +38,22 @@ zerombr
 
 # First disk
 clearpart --all --initlabel --disklabel=gpt --drives=vda
-bootloader --location=mbr --boot-drive=vda --append='rootdelay=300 console=ttyS0 no_timer_check crashkernel=auto'
+#bootloader --location=mbr --boot-drive=vda --append='rootdelay=300 console=ttyS0 no_timer_check crashkernel=auto'
 part pv.root     --label=volumes  --size=1024  --grow         --asprimary  --ondisk=vda
 part /boot/efi   --label=efi      --size=1024  --fstype=efi   --asprimary
 part /boot       --label=boot     --size=1024  --fstype=ext4  --asprimary
 volgroup system pv.root
-logvol /         --label=root     --size={{ disk_size_raw }} --fstype=xfs --vgname=system --name=root
+logvol /         --label=root     --size={{ disk_size_mib }} --fstype=xfs --vgname=system --name=root
 logvol /var/log  --label=log      --size=4096  --fstype=xfs --vgname=system --name=log
 #logvol swap      --label=swap     --size=1024               --vgname=system --name=swap
 
 # INSTALLATION SOURCE, EXTRA REPOSITOROIES, PACKAGE GROUPS, PACKAGES
 # Installation Source
 {% if proxmox_automatic_url_mirrorlist is defined and proxmox_automatic_url_mirrorlist != "" %}
-url --mirrorlist="{{ proxmox_automatic_url_mirrorlist }}"
+url --mirrorlist={{ proxmox_automatic_url_mirrorlist }}
 {% endif %}
 {% if proxmox_automatic_url_baseos is defined and proxmox_automatic_url_baseos != "" %}
-url --url="{{ proxmox_automatic_url_baseos }}"
+url --url={{ proxmox_automatic_url_baseos }}
 {% endif %}
 
 # Repositories - Automatisch per Schleife eingefügt
@@ -64,7 +64,7 @@ repo --name={{ repo.name }}{% if repo.mirrorlist is defined %} --mirrorlist={{ r
 
 # Remove `@guest-agents` group if this is not a VM.
 %packages --retries=5 --timeout=20 --inst-langs=en
-@core
+@^minimal-environment
 kernel-devel
 openssh-server
 # Add additional packages here
@@ -76,7 +76,6 @@ openssh-server
 # GROUPS, USERS, ENABLE SSH, FINISH INSTALL
 rootpw --lock
 
-{% endif %}
 user --name={{ proxmox_automatic_admin_user }} --password='{{ proxmox_automatic_admin_password }}' --plaintext --gecos='{{ proxmox_automatic_admin_gecos }}' --groups='wheel,{{ proxmox_automatic_admin_user }}(1000)' --gid=1000
 {% if proxmox_automatic_admin_ssh_key and proxmox_automatic_admin_ssh_key != "" %}
 sshkey --username={{ proxmox_automatic_admin_user }} '{{ proxmox_automatic_admin_ssh_key }}'
@@ -86,6 +85,7 @@ sshkey --username={{ proxmox_automatic_admin_user }} '{{ proxmox_automatic_admin
 user --name={{ proxmox_automatic_service_user }} --password='{{ proxmox_automatic_service_user }}' --plaintext --gecos="Ansible Serviceaccount" --gid=1001
 {% if proxmox_automatic_service_ssh_key and proxmox_automatic_service_ssh_key != "" %}
 sshkey --username={{ proxmox_automatic_service_user }} '{{ proxmox_automatic_service_ssh_key }}'
+{% endif %}
 {% endif %}
 
 services --enabled='sshd.service,rsyslog,chronyd,NetworkManager'
@@ -109,5 +109,27 @@ reboot --eject
 
 # Install Updates
 /usr/bin/dnf update -y
+
+# Remove all repositories that are not needed anymore
+/usr/bin/rm -f /etc/yum.repos.d/rocky-* /etc/yum.repos.d/epel-*
+
+/usr/bin/echo "Konfiguriere lokale Repositories ..."
+
+/usr/bin/cat <<EOF > /etc/yum.repos.d/local.repo
+{% for repo in proxmox_automatic_repos %}
+[{{ repo.name | lower }}]
+name={{ repo.name }}
+{% if repo.mirrorlist is defined -%}
+mirrorlist={{ repo.mirrorlist }}
+{% endif %}
+{% if repo.baseurl is defined -%}
+baseurl={{ repo.baseurl }}
+{% endif %}
+enabled=1
+gpgcheck=0
+cost={{ repo.cost | default('100') }}
+
+{% endfor %}
+EOF
 
 %end
