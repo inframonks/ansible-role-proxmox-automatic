@@ -2,7 +2,6 @@
 proxmox_automatic_files_dir: "kickstart-files"
 proxmox_automatic_iso_dir: "kickstart-isos"
 # VM Deployment Configuration
-proxmox_automatic_os: rocky9
 proxmox_automatic_first_disk_size: "20"  # IN GB
 proxmox_automatic_pve_iso_storage: "cephfs"
 proxmox_automatic_pve_vm_storage: "volumes"
@@ -13,7 +12,7 @@ proxmox_automatic_api_password: "<filleme>"
 # Kickstart Configuration
 proxmox_automatic_timezone: "Europe/Berlin"
 proxmox_automatic_ntp_servers:
-  - "time.cloduflare.com"
+  - "time.cloudflare.com"
 proxmox_automatic_dns_servers:
   - "1.0.0.1"
   - "1.1.1.1"
@@ -33,7 +32,6 @@ proxmox_automatic_repos:
   - { name: "Extras", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever", cost: 0 }
   - { name: "CRB", mirrorlist: "https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$releasever$rltype", cost: 0 }
   - { name: "EPEL", baseurl: "https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/", cost: 0 }
-
 proxmox_automatic_packages:
   - qemu-guest-agent
   - vim
