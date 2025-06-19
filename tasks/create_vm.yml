@@ -9,11 +9,11 @@
     name: "{{ inventory_hostname }}"
     memory: "{{ proxmox_automatic_memory | default(2048) }}"
     cores: "{{ proxmox_automatic_vcpu | default(2) }}"
-    cpu: "{{ proxmox_automatic_cpu_type | default('x86-64-v2-AES') }}"
+    cpu: "{{ proxmox_automatic_cpu_type | default('x86-64-v3') }}"
     sockets: "{{ proxmox_automatic_sockets | default(1) }}"
     state: "{{ proxmox_automatic_state | default('present') }}"
     ide:
-      ide2: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/rocky9-ks.iso"
+      ide2: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/{{ proxmox_automatic_iso_name | default('rocky9.6-ks') }}.iso"
       ide3: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/ks-{{ inventory_hostname }}.iso"
     bios: ovmf
     efidisk0:
@@ -33,7 +33,7 @@
     scsihw: "{{ proxmox_automatic_scsi_hw | default('virtio-scsi-single') }}"
     machine: "{{ proxmox_automatic_machine | default('q35') }}"
     hotplug: "{{ proxmox_automatic_hotplug | default('disk') }}"
-    startup: "order={{ proxmox_automatic_boot_order | default(1) }},up={{ proxmox_automatic_boot_order_up_wait | default(3) }},down={{ proxmox_automatic_boot_order_down_wait | default(3) }}"
+    startup: "order={{ proxmox_automatic_boot_order | default(1) }},up={{ proxmox_automatic_boot_order_up_wait | default(2) }},down={{ proxmox_automatic_boot_order_down_wait | default(3) }}"
     agent: enabled=1
     pool: "{{ proxmox_automatic_vm_pool | default(omit) }}"
   delegate_to: localhost
@@ -60,7 +60,7 @@
     api_password: "{{ proxmox_automatic_api_password }}"
     vmid: "{{ proxmox_automatic_vmid }}"
     interface: "{{ item.name }}"
-    bridge: "{{ item.bridge | default('vmbr2') }}"
+    bridge: "{{ item.bridge | default(proxmox_automatic_defaultbridge) }}"
     tag: "{{ item.vlanid | default(0) }}"
     model: "{{ item.model | default('virtio') }}"
     mac: "{{ item.mac | default(omit) }}"
