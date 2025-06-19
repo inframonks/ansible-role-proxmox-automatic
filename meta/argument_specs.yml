@@ -14,10 +14,10 @@ argument_specs:
         type: str
         default: "kickstart-isos"
         description: "Pfad für erzeugte ISO-Dateien"
-      proxmox_automatic_os:
+      proxmox_automatic_iso_name:
         type: str
-        default: "rocky9"
-        description: "Betriebssystembezeichnung (z. B. rocky9)"
+        default: "rocky9.6-ks"
+        description: "Name der Kickstart-ISO-Datei (ohne .iso)"
       proxmox_automatic_first_disk_size:
         type: str
         default: "20"
@@ -107,7 +107,7 @@ argument_specs:
         description: "vCPUs"
       proxmox_automatic_cpu_type:
         type: str
-        default: "x86-64-v2-AES"
+        default: "x86-64-v3"
         description: "CPU-Typ"
       proxmox_automatic_sockets:
         type: int
