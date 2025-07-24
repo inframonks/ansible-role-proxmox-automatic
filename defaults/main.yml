@@ -27,14 +27,31 @@ proxmox_automatic_service_user: "ansible"
 proxmox_automatic_service_password: "<filleme>"
 proxmox_automatic_service_ssh_key: "<fille with publickey>"
 proxmox_automatic_service_gecos: "Ansible Serviceaccount"
+proxmox_automatic_remove_repos: false
 proxmox_automatic_url_baseos: ""
 proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
 proxmox_automatic_repos:
-  - { name: "BaseOS", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever", cost: 0 }
-  - { name: "AppStream", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=AppStream-$releasever", cost: 0 }
-  - { name: "Extras", mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever", cost: 0 }
-  - { name: "CRB", mirrorlist: "https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$releasever$rltype", cost: 0 }
-  - { name: "EPEL", baseurl: "https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/", cost: 0 }
+  - name: baseos
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever$rltype
+    gpgcheck: 1
+    enabled: 1
+  - name: appstream
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=AppStream-$releasever$rltype
+    gpgcheck: 1
+    enabled: 1
+  - name: extras
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever$rltype
+    gpgcheck: 1
+    enabled: 1
+  - name: crb
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$releasever$rltype
+    gpgcheck: 1
+    enabled: 1
+  - name: epel
+    baseos: https://download.fedoraproject.org/pub/epel/$releasever/Everything/x86_64/
+    gpgcheck: 0
+    enabled: 1
+
 proxmox_automatic_packages:
   - qemu-guest-agent
   - vim
@@ -55,3 +72,5 @@ proxmox_automatic_packages:
   - mtr
   - iperf3
   - bash-completion
+  - python3
+  - python3-pip

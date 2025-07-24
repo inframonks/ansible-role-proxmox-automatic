@@ -110,6 +110,11 @@ reboot --eject
 # Install Updates
 /usr/bin/dnf update -y
 
+# Remove cockpit and dhcpv6 from firewall
+/usr/bin/firewall-cmd --permanent --remove-service=cockpit
+/usr/bin/firewall-cmd --permanent --remove-service=dhcpv6-client
+
+{% if proxmox_automatic_remove_repos is defined and proxmox_automatic_remove_repos %}
 # Remove all repositories that are not needed anymore
 /usr/bin/rm -f /etc/yum.repos.d/rocky-* /etc/yum.repos.d/epel-*
 
@@ -118,7 +123,7 @@ reboot --eject
 /usr/bin/cat <<EOF > /etc/yum.repos.d/local.repo
 {% for repo in proxmox_automatic_repos %}
 [{{ repo.name | lower }}]
-name={{ repo.name }}
+name={{ repo.name_long | default(repo.name) }}
 {% if repo.mirrorlist is defined -%}
 mirrorlist={{ repo.mirrorlist }}
 {% endif %}
@@ -126,10 +131,22 @@ mirrorlist={{ repo.mirrorlist }}
 baseurl={{ repo.baseurl }}
 {% endif %}
 enabled=1
+{% if repo.metadata_expire is defined -%}
+metadata_expire={{ repo.metadata_expire | default('6h') }}
+{% else %}
+metadata_expire=6h
+{% endif %}
+{% endif %}
+{% if repo.gpgcheck is defined -%}
+gpgcheck={{ repo.gpgcheck | default('0') }}
+gpgkey={{ repo.gpgkey | default('file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-9') }}
+{% else %}
 gpgcheck=0
+{% endif %}
 cost={{ repo.cost | default('100') }}
 
 {% endfor %}
 EOF
+{% endif %}
 
 %end
