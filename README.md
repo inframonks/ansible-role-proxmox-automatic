@@ -28,8 +28,14 @@ Es wird ein eigenes Plugin für den Upload der ISO-Dateien auf den Proxmox-Serve
 |------------------------------------------|------------------------------------------------------------|------------------------------------------|
 | `proxmox_automatic_files_dir`            | Verzeichnis für Kickstart-Dateien                          | `"kickstart-files"`                      |
 | `proxmox_automatic_iso_dir`              | Verzeichnis für erzeugte ISO-Dateien                       | `"kickstart-isos"`                       |
-| `proxmox_automatic_iso_name`             | Iso Datei ohne .iso am Ende                                | `"rocky9.6"`                             |
-| `proxmox_automatic_first_disk_size`      | Größe der ersten Festplatte (in GB)                        | `"20G"`                                  |
+| `proxmox_automatic_os`                   | Zielbetriebssystem                                         | `"rocky9"`                               |
+| `proxmox_automatic_first_disk_size_mb`   | Gesamtgröße der ersten virtuellen Festplatte in MB         | `20480` (entspricht 20 GB)               |
+| `proxmox_automatic_boot_size_mb`         | Größe der `/boot` Partition in MB                          | `1024`                                   |
+| `proxmox_automatic_efi_size_mb`          | Größe der EFI-Systempartition in MB                        | `1024`                                   |
+| `proxmox_automatic_log_size_mb`          | Größe der `/var/log` Partition in MB                       | `4096`                                   |
+| `proxmox_automatic_enable_swap`          | Ob eine Swap-Partition erzeugt werden soll                 | `false`                                  |
+| `proxmox_automatic_swap_size_mb`         | Größe der Swap-Partition in MB (enabled swap)              | `1024`                                   |
+| `proxmox_automatic_install_reserve_mb`   | Reserve in MB für LVM/Installer                            | `512`                                    |
 | `proxmox_automatic_storage`              | Standard-Storage (für VM & ISO)                            | `proxmox_automatic_pve_vm_storage`       |
 | `proxmox_automatic_pve_iso_storage`      | Storage für ISOs in Proxmox                                | `"cephfs"`                               |
 | `proxmox_automatic_pve_vm_storage`       | Storage für VMs in Proxmox                                 | `"volumes"`                              |
@@ -38,15 +44,15 @@ Es wird ein eigenes Plugin für den Upload der ISO-Dateien auf den Proxmox-Serve
 | `proxmox_automatic_api_user`             | Benutzername für die API                                   | `"svc_ansible_rw@pam"`                   |
 | `proxmox_automatic_api_password`         | Passwort für API-Zugang                                    | **erforderlich**                         |
 | `proxmox_automatic_timezone`             | Zeitzone der VM                                            | `"Europe/Berlin"`                        |
-| `proxmox_automatic_ntp_servers`          | Liste von NTP-Servern                                      | `["ntp.cloudflare.com"]`                 |
-| `proxmox_automatic_dns_servers`          | Liste von DNS-Servern                                      | `["1.1.1.1", "1.0.0.1"]`                 |
-| `proxmox_automatic_admin_user`           | Admin-Benutzer im Zielsystem                               | `"admin"`                                |
+| `proxmox_automatic_ntp_servers`          | Liste von NTP-Servern                                      | `["ntp.atis-systems.com"]`               |
+| `proxmox_automatic_dns_servers`          | Liste von DNS-Servern                                      | `["192.168.193.104", "192.168.193.105"]` |
+| `proxmox_automatic_admin_user`           | Admin-Benutzer im Zielsystem                               | `"svc_ansible_rw"`                       |
 | `proxmox_automatic_admin_password`       | Passwort für Admin-Benutzer                                | **erforderlich**                         |
 | `proxmox_automatic_admin_ssh_key`        | SSH Public Key für Admin                                   | **erforderlich**                         |
-| `proxmox_automatic_admin_gecos`          | GECOS-Feld / Beschreibung                                  | `"Admin user"`                           |
-| `proxmox_automatic_service_user`         | Ansible Serviceaccount                                     | `"ansible"`                              |
-| `proxmox_automatic_service_password`     | Passwort für Ansible Serviceaccount                        | **erforderlich**                         |
-| `proxmox_automatic_service_ssh_key`      | SSH Public Key für Ansible Serviceaccount                  | **erforderlich**                         |
+| `proxmox_automatic_admin_gecos`          | GECOS-Feld / Beschreibung                                  | `"ATIS Admin"`                           |
+| `proxmox_automatic_ansible_user`         | Ansible Serviceaccount                                     | `"ansible"`                              |
+| `proxmox_automatic_ansible_password`     | Passwort für Ansible Serviceaccount                        | **erforderlich**                         |
+| `proxmox_automatic_ansible_ssh_key`      | SSH Public Key für Ansible Serviceaccount                  | **erforderlich**                         |
 | `proxmox_automatic_url_baseos`           | BaseOS URL für Rocky-Install                               | Rocky BaseOS URL                         |
 | `proxmox_automatic_url_mirrorlist`       | Mirrorlist für Rocky-Install alternativ zu vorheriger Var. | Rocky Mirror URL                         |
 | `proxmox_automatic_repos`                | Zusätzliche Repository-Konfiguration                       | Siehe YAML-Beispiel                      |
@@ -59,7 +65,7 @@ Es wird ein eigenes Plugin für den Upload der ISO-Dateien auf den Proxmox-Serve
 | `proxmox_automatic_hypervisor`           | Ziel-Hypervisor (Hostname/FQDN)                            | **erforderlich**                         |
 | `proxmox_automatic_memory`               | Arbeitsspeicher (MB)                                       | `2048`                                   |
 | `proxmox_automatic_vcpu`                 | vCPUs                                                      | `2`                                      |
-| `proxmox_automatic_cpu_type`             | CPU-Typ (QEMU)                                             | `"x86-64-v3"`                        |
+| `proxmox_automatic_cpu_type`             | CPU-Typ (QEMU)                                             | `"x86-64-v2-AES"`                        |
 | `proxmox_automatic_sockets`              | CPU-Sockelanzahl                                           | `1`                                      |
 | `proxmox_automatic_state`                | VM-Zustand (`present` / `absent`)                          | `"present"`                              |
 | `proxmox_automatic_storage`              | Manuelles Override des Storage                             | *(leer)*                                 |
@@ -150,9 +156,9 @@ Der proxmox_automatic_hypervisor ist der Hostname des Proxmox-Servers, auf dem d
 Der proxmox_automatic_api_host gegen den sich Ansible verbindet. Hier kann auch eine IP-Adresse angegeben werden.
 
 ```yaml
-proxmox_automatic_api_host: 192.168.178.12
-proxmox_automatic_vmid: 17812
-proxmox_automatic_hypervisor: srv-hyp-01
+proxmox_automatic_api_host: 10.42.0.101
+proxmox_automatic_vmid: 3005012
+proxmox_automatic_hypervisor: srv-plf-hyp-00101
 proxmox_automatic_memory: 4096
 proxmox_automatic_vcpu: 4
 proxmox_automatic_disks:
@@ -160,7 +166,7 @@ proxmox_automatic_disks:
     size: 100G
 proxmox_automatic_networks:
   - name: net0
-    vlanid: 178
+    vlanid: 30
     ip: 10.10.1.101
     netmask: 255.255.255.0
     gateway: 10.10.1.1
@@ -213,10 +219,10 @@ brew install xorriso syslinux
 
 ```bash
 
-curl -LO https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.6-x86_64-boot.iso
+curl -LO https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.5-x86_64-boot.iso
 
 sudo mkdir /mnt/iso
-sudo mount -o loop Rocky-9.6-x86_64-boot.iso /mnt/iso
+sudo mount -o loop Rocky-9.5-x86_64-boot.iso /mnt/iso
 
 mkdir ~/rocky_custom_iso
 sudo rsync -a /mnt/iso/ ~/rocky_custom_iso/

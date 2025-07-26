@@ -1,5 +1,5 @@
 ---
-- name: "Create VM"
+- name: Create VM
   community.general.proxmox_kvm:
     api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
@@ -24,9 +24,9 @@
     tpmstate0:
       storage: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}"
     virtio:
-      virtio0: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}:{{ proxmox_automatic_first_disk_size | regex_replace('[GM]', '') }}"
+      virtio0: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}:{{ proxmox_automatic_first_disk_size | int // 1024 }}"
     net:
-      net0: "virtio{% if proxmox_automatic_networks[0].mac is defined %}={{ proxmox_automatic_networks[0].mac }}{% else %},{% endif %},bridge={{ proxmox_automatic_networks[0].bridge | default(proxmox_automatic_defaultbridge) }},tag={{ proxmox_automatic_networks[0].vlanid }}{% if proxmox_automatic_networks[0].mtu is defined %},{{ proxmox_automatic_networks[0].mtu }}{% endif %}"
+      net0: "virtio{% if proxmox_automatic_primary_nic.mac is defined %}={{ proxmox_automatic_primary_nic.mac }}{% else %},{% endif %},bridge={{ proxmox_automatic_primary_nic.bridge | default(proxmox_automatic_defaultbridge) }},tag={{ proxmox_automatic_primary_nic.vlanid }}{% if proxmox_automatic_primary_nic.mtu is defined %},{{ proxmox_automatic_primary_nic.mtu }}{% endif %}"
     kvm: "{{ proxmox_automatic_kvm | default(true) }}"
     ostype: "{{ proxmox_automatic_os_type | default('l26') }}"
     onboot: "{{ proxmox_automatic_onboot | default(true) }}"
@@ -38,28 +38,31 @@
     pool: "{{ proxmox_automatic_vm_pool | default(omit) }}"
   delegate_to: localhost
 
-- name: "Add additional disks"
+- name: Add additional disks from data_disk_layout
   community.general.proxmox_disk:
     api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"
     vmid: "{{ proxmox_automatic_vmid }}"
-    disk: "{{ item.name }}"
+    disk: "virtio{{ index + 1 }}"
     storage: "{{ item.storage | default(proxmox_automatic_pve_vm_storage) }}"
-    size: "{{ item.size | regex_replace('[GM]', '') }}"
-  loop: "{{ proxmox_automatic_disks | default([]) }}"
+    size: "{{ item.size_mb | int // 1024 }}"
+    iothread: "{{ item.proxmox_iothread | default(false) }}"
+  loop: "{{ proxmox_automatic_data_disk_layout }}"
   loop_control:
-    label: "{{ proxmox_automatic_hypervisor }} - {{ item.name }}"
+    index_var: index
+    label: "{{ inventory_hostname }} - virtio{{ index + 1 }}"
   delegate_to: localhost
-  when: proxmox_automatic_disks is defined and proxmox_automatic_disks | length > 0
+  when: proxmox_automatic_data_disk_layout is defined and proxmox_automatic_data_disk_layout | length > 0
 
+# task to add network interfaces
 - name: "Add additional network adapters"
   community.general.proxmox_nic:
     api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"
     vmid: "{{ proxmox_automatic_vmid }}"
-    interface: "{{ item.name }}"
+    interface: "{{ item.proxmox_name }}"
     bridge: "{{ item.bridge | default(proxmox_automatic_defaultbridge) }}"
     tag: "{{ item.vlanid | default(0) }}"
     model: "{{ item.model | default('virtio') }}"
@@ -67,11 +70,11 @@
     mtu: "{{ item.mtu | default(omit) }}"
     rate: "{{ item.rate | default(omit) }}"
     state: "present"
-  loop: "{{ proxmox_automatic_networks | default([]) }}"
+  loop: "{{ proxmox_automatic_secondary_nics | default([]) }}"
   loop_control:
-    label: "{{ proxmox_automatic_hypervisor }} - {{ item.name }}"
+    label: "{{ inventory_hostname }} - {{ item.proxmox_name }}"
   delegate_to: localhost
-  when: proxmox_automatic_networks is defined and proxmox_automatic_networks | length > 0
+  when: proxmox_automatic_secondary_nics is defined and proxmox_automatic_secondary_nics | length > 0
 
 - name: "Start VM"
   community.general.proxmox_kvm:

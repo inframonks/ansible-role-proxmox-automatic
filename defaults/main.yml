@@ -2,13 +2,77 @@
 proxmox_automatic_files_dir: "kickstart-files"
 proxmox_automatic_iso_dir: "kickstart-isos"
 # VM Deployment Configuration
-proxmox_automatic_first_disk_size: "20"  # IN GB
 proxmox_automatic_pve_iso_storage: "cephfs"
 proxmox_automatic_pve_vm_storage: "volumes"
 proxmox_automatic_defaultbridge: "vmbr1"
 proxmox_automatic_vmid: >-
-  {{ proxmox_automatic_networks[0].vlanid | string ~
-    '%03d' | format(proxmox_automatic_networks[0].ip.split('.')[-1] | int) }}
+  {{ proxmox_automatic_primary_nic.vlanid | string ~
+    '%03d' | format(proxmox_automatic_primary_nic.ip.split('.')[-1] | int) }}
+proxmox_automatic_files_dir: "kickstart-files"
+proxmox_automatic_iso_dir: "kickstart-isos"
+# All sizes in MiB
+proxmox_automatic_first_disk_size_mb: 20480
+proxmox_automatic_os_disk_layout:
+  - device: vda
+    size_mb: "{{ proxmox_automatic_first_disk_size_mb }}"
+    proxmox_iothread: true
+    vg: system
+    partitions:
+      - mount: /boot
+        name: boot
+        size_mb: 1024
+        fstype: ext4
+      - mount: /efi
+        name: efi
+        size_mb: 1024
+        fstype: efi
+    lvs:
+      - mount: /var/log
+        name: log
+        size_mb: 4096
+        fstype: xfs
+      - mount: /
+        name: root
+        size_mb: 100%FREE
+        fstype: xfs
+      - mount: /swap
+        name: swap
+        size_mb: 2048
+        fstype: swap
+proxmox_automatic_data_disk_layout:
+  - device: vdb
+    size_mb: 16384
+    proxmox_iothread: true
+    vg: content
+    lvs:
+      - mount: /var/opt
+        name: data
+        size_mb: 100%FREE
+        fstype: xfs
+proxmox_automatic_primary_nic:
+  proxmox_name: net0
+  os_device: enp6s18
+  bridge: vmbr2
+  vlanid: 3001
+  model: virtio
+  ip: "{{ desired_ip }}"
+  netmask: 255.255.255.0
+  gateway: 10.42.1.5
+proxmox_automatic_secondary_nics:
+  - proxmox_name: net1
+    os_device: enp6s19
+    bridge: vmbr2
+    vlanid: 3225
+    model: virtio
+    ip: 10.10.10.2
+    netmask: 255.255.255.240
+    mtu: 9000
+  - proxmox_name: net2
+    os_device: enp6s20
+    bridge: vmbr1
+    vlanid: 201
+    model: virtio
+    dhcp: true
 # Api Access
 proxmox_automatic_api_user: svc_ansible_rw@pam
 proxmox_automatic_api_password: "<filleme>"
