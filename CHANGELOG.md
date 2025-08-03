@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - GitHub Actions permissions for security scanning (`security-events: write`)
 - Conditional security scans to prevent fork PR permission issues
+- Comprehensive .gitignore for Ansible, Python, IDE files, and generated artifacts
 
 ### Fixed
 - Security scan upload permissions - resolves "Resource not accessible by integration" errors
