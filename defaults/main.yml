@@ -1,4 +1,8 @@
 ---
+# Local Dependencies Installation
+# Set to true to automatically install required packages (xorriso, syslinux) on the Ansible controller
+proxmox_automatic_install_dependencies: false
+
 proxmox_automatic_files_dir: "kickstart-files"
 proxmox_automatic_iso_dir: "kickstart-isos"
 # VM Deployment Configuration

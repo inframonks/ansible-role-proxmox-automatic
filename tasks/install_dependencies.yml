@@ -1,0 +1,174 @@
+---
+# Task file for installing local dependencies required for ISO creation
+# This task file installs the necessary packages for different operating systems
+
+- name: "Install dependencies on Red Hat / Rocky Linux / AlmaLinux / CentOS / Fedora"
+  ansible.builtin.package:
+    name:
+      - xorriso
+      - syslinux
+    state: present
+  become: true
+  when: ansible_os_family == "RedHat"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Update package cache on Debian-based systems"
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+  when: ansible_os_family == "Debian"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Install dependencies on Debian / Ubuntu"
+  ansible.builtin.package:
+    name:
+      - xorriso
+      - isolinux
+      - syslinux
+    state: present
+  become: true
+  when: ansible_os_family == "Debian"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Check if Homebrew is installed (macOS)"
+  ansible.builtin.command:
+    cmd: which brew
+  register: homebrew_check
+  failed_when: false
+  changed_when: false
+  when: ansible_os_family == "Darwin"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Fail if Homebrew is not installed on macOS"
+  ansible.builtin.fail:
+    msg: |
+      Homebrew is required but not installed on macOS.
+      Please install Homebrew first: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  when: 
+    - ansible_os_family == "Darwin"
+    - homebrew_check.rc != 0
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Install dependencies on macOS via Homebrew"
+  community.general.homebrew:
+    name:
+      - xorriso
+      - syslinux
+    state: present
+  when: 
+    - ansible_os_family == "Darwin"
+    - homebrew_check.rc == 0
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Check for SUSE/openSUSE family"
+  ansible.builtin.package:
+    name:
+      - xorriso
+      - syslinux
+    state: present
+  become: true
+  when: ansible_os_family == "Suse"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Check for Arch Linux family"
+  ansible.builtin.package:
+    name:
+      - xorriso
+      - syslinux
+    state: present
+  become: true
+  when: ansible_os_family == "Archlinux"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Display installed packages information"
+  ansible.builtin.debug:
+    msg: |
+      Dependencies successfully installed for {{ ansible_os_family }} ({{ ansible_distribution }} {{ ansible_distribution_version }})
+      Installed packages:
+      {% if ansible_os_family == "RedHat" %}
+      - xorriso (ISO creation tool)
+      - syslinux (provides isohdpfx.bin for hybrid boot)
+      {% elif ansible_os_family == "Debian" %}
+      - xorriso (ISO creation tool)
+      - isolinux (provides /usr/share/syslinux/isohdpfx.bin)
+      - syslinux (additional syslinux tools)
+      {% elif ansible_os_family == "Darwin" %}
+      - xorriso (ISO creation tool)
+      - syslinux (bootloader tools)
+      {% else %}
+      - xorriso (ISO creation tool)
+      - syslinux (bootloader tools)
+      {% endif %}
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Verify xorriso installation"
+  ansible.builtin.command:
+    cmd: xorriso --version
+  register: xorriso_version
+  changed_when: false
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Display xorriso version"
+  ansible.builtin.debug:
+    msg: "xorriso version: {{ xorriso_version.stdout_lines[0] }}"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Verify syslinux installation (non-macOS)"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: syslinux_files
+  loop:
+    - "/usr/share/syslinux/isohdpfx.bin"
+    - "/usr/lib/syslinux/isohdpfx.bin"
+    - "/usr/lib/ISOLINUX/isohdpfx.bin"
+  when: ansible_os_family != "Darwin"
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Display found syslinux files"
+  ansible.builtin.debug:
+    msg: "Found isohdpfx.bin at: {{ item.stat.path }}"
+  loop: "{{ syslinux_files.results | default([]) }}"
+  when: 
+    - ansible_os_family != "Darwin"
+    - item.stat.exists
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
+- name: "Warning if no isohdpfx.bin found"
+  ansible.builtin.debug:
+    msg: |
+      WARNING: isohdpfx.bin not found in common locations.
+      This file is required for creating hybrid ISOs.
+      Please check your syslinux/isolinux installation.
+  when: 
+    - ansible_os_family != "Darwin"
+    - syslinux_files.results | selectattr('stat.exists') | list | length == 0
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps

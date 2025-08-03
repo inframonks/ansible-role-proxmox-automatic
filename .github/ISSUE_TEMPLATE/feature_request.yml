@@ -1,0 +1,46 @@
+---
+name: ✨ Feature Request
+about: Suggest a new feature or improvement
+title: '[FEATURE] '
+labels: ['enhancement', 'needs-discussion']
+assignees: ''
+---
+
+## ✨ Feature Description
+<!-- A clear description of the desired feature -->
+
+## 🎯 Motivation and Use Case
+<!-- Why would this feature be useful? What problem does it solve? -->
+
+## 💡 Proposed Solution
+<!-- How do you envision the implementation? -->
+
+## 🔄 Alternatives
+<!-- Have you considered other approaches? -->
+
+## 📝 Additional Information
+<!-- Screenshots, mockups, links to similar implementations, etc. -->
+
+## 🏷️ Category
+<!-- Which area does this feature affect? -->
+- [ ] Storage configuration
+- [ ] Network configuration  
+- [ ] User management
+- [ ] Kickstart template
+- [ ] Dependencies/Installation
+- [ ] API/Proxmox integration
+- [ ] Documentation
+- [ ] Testing
+- [ ] Other: ________________
+
+## 🚀 Priority (from your perspective)
+- [ ] Low (Nice-to-have)
+- [ ] Medium (Would improve usage)
+- [ ] High (Important for my use case)
+- [ ] Critical (Blocks important functionality)
+
+## ✔️ Checklist
+- [ ] I have searched for similar feature requests
+- [ ] I have read the current documentation
+- [ ] I can help with implementation (code/testing)
+- [ ] I can provide feedback on the implementation

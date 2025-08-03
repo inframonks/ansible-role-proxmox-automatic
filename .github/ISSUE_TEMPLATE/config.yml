@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/inframonks/ansible-role-proxmox-automatic/blob/main/README.md
+    about: Read the complete documentation before creating an issue
+  - name: 💬 Discussions
+    url: https://github.com/inframonks/ansible-role-proxmox-automatic/discussions
+    about: Ask general questions or discuss features in GitHub Discussions

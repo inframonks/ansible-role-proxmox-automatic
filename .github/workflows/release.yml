@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    name: Create Release
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible ansible-lint yamllint
+
+    - name: Run tests
+      run: |
+        yamllint .
+        ansible-lint
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Einfache Changelog-Generierung basierend auf Git Commits
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -n "$PREVIOUS_TAG" ]; then
+          CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s")
+        fi
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Changes in this Release
+          
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ## Installation
+          
+          ```bash
+          ansible-galaxy install inframonks.proxmox_automatic:${{ github.ref_name }}
+          ```
+          
+          ## Compatibility
+          
+          - Ansible: 2.14+
+          - Python: 3.8+
+          - Proxmox VE: 7.0+
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+    - name: Publish to Ansible Galaxy
+      run: |
+        # Falls gewünscht, kann hier die Veröffentlichung auf Ansible Galaxy erfolgen
+        echo "Manual publishing to Ansible Galaxy required"
+        echo "Run: ansible-galaxy role import inframonks ansible-role-proxmox-automatic"

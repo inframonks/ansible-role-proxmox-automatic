@@ -1,4 +1,12 @@
 ---
+# Install dependencies if requested
+- name: "Install local dependencies for ISO creation"
+  ansible.builtin.include_tasks: install_dependencies.yml
+  when: proxmox_automatic_install_dependencies | default(false)
+  tags:
+    - proxmox_automatic_dependencies
+    - proxmox_automatic_install_deps
+
 - name: "Initialize empty storage dictionary"
   ansible.builtin.set_fact:
     storage_dict: {}

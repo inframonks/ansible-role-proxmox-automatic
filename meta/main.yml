@@ -3,25 +3,46 @@ dependencies: []
 
 galaxy_info:
   role_name: proxmox_automatic
-  author: Dominik Lenhardt
-  description: This role creates kickstart iso files and proxmox virtual machines based on inventory.
-  company: ""
-  license: ""
+  author: inframonks
+  description: Automatically create VMs on Proxmox VE with custom Kickstart configurations
+  company: inframonks
+  license: MIT
   min_ansible_version: "2.10"
   platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
     - name: Rocky
       versions:
         - all
+    - name: Fedora
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: MacOSX
+      versions:
+        - all
   galaxy_tags:
-    - os
-    - kickstart
-    - rocky9
-    - ubuntu
-    - autoinstall
     - proxmox
     - virtualization
+    - automation
+    - kickstart
     - vm
+    - infrastructure
+    - cloud
+    - linux
+    - rocky
+    - rhel
+    - os
+    - autoinstall
     - virtual_machine
     - kvm
     - qemu
-    - libvirt

@@ -1,0 +1,47 @@
+---
+name: ❓ Question / Support
+about: Ask a question about usage or configuration
+title: '[QUESTION] '
+labels: ['question', 'documentation']
+assignees: ''
+---
+
+## ❓ Question
+<!-- Ask your question as specifically as possible -->
+
+## 🎯 What are you trying to achieve?
+<!-- Describe your goal or desired end state -->
+
+## 🔧 What have you already tried?
+<!-- Which approaches have you already tested? -->
+
+## 📋 Your Configuration
+
+<details>
+<summary>Relevant parts of your configuration (remove sensitive data!)</summary>
+
+```yaml
+# Inventory configuration
+proxmox_automatic_vmid: 101
+proxmox_automatic_hypervisor: "pve-node01"
+# ...
+
+# Playbook
+---
+- name: Create virtual machines
+  # ...
+```
+</details>
+
+## 🖥️ Environment
+- Ansible Version: [e.g. 2.15.0]
+- Proxmox VE Version: [e.g. 8.1.4]
+- OS (Ansible Controller): [e.g. Rocky Linux 9.5]
+
+## 📚 Documentation read?
+- [ ] I have read the README.md
+- [ ] I have looked at the examples in the documentation
+- [ ] I have searched for similar issues/questions
+
+## 📎 Additional Information
+<!-- Screenshots, error messages, etc. -->

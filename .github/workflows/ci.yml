@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Ansible Lint
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible ansible-lint yamllint
+
+    - name: Run yamllint
+      run: yamllint .
+
+    - name: Run ansible-lint
+      run: ansible-lint
+
+  test:
+    runs-on: ubuntu-latest
+    name: Test on Ansible ${{ matrix.ansible-version }}
+    strategy:
+      matrix:
+        ansible-version:
+          - '2.14'
+          - '2.15'
+          - '2.16'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Ansible ${{ matrix.ansible-version }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install "ansible>=${{ matrix.ansible-version }},<${{ matrix.ansible-version | float + 0.1 }}"
+        pip install ansible-lint yamllint
+
+    - name: Install collection dependencies
+      run: |
+        ansible-galaxy collection install community.general
+        ansible-galaxy collection install ansible.posix
+
+    - name: Create test inventory
+      run: |
+        mkdir -p tests/inventory/host_vars
+        cat > tests/inventory/hosts.yml << EOF
+        all:
+          hosts:
+            test-vm:
+              ansible_host: localhost
+              ansible_connection: local
+        EOF
+        
+        cat > tests/inventory/host_vars/test-vm.yml << EOF
+        proxmox_automatic_vmid: 999
+        proxmox_automatic_hypervisor: "test-node"
+        proxmox_automatic_api_host: "test.example.com"
+        proxmox_automatic_api_password: "test-password"
+        proxmox_automatic_networks:
+          - name: net0
+            vlanid: 100
+            ip: "192.168.1.100"
+            netmask: "255.255.255.0"
+            gateway: "192.168.1.1"
+        EOF
+
+    - name: Test role syntax
+      run: |
+        ansible-playbook tests/test.yml -i tests/inventory/hosts.yml --syntax-check
+
+    - name: Test variable merging (dry-run)
+      run: |
+        ansible-playbook tests/test.yml -i tests/inventory/hosts.yml --check --diff
+
+  security:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'

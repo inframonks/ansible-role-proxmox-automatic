@@ -1,0 +1,37 @@
+---
+name: 📖 Documentation Issue
+about: Report a problem with documentation or suggest improvements
+title: '[DOCS] '
+labels: ['documentation', 'needs-review']
+assignees: ''
+---
+
+## 📖 Documentation Problem
+<!-- Describe the issue with the documentation -->
+
+## 📍 Affected Section
+<!-- Where exactly is the problem? -->
+- [ ] README.md
+- [ ] Variable documentation
+- [ ] Examples
+- [ ] Code comments
+- [ ] Other: ________________
+
+## 🔍 Type of Problem
+- [ ] Information is missing
+- [ ] Information is outdated
+- [ ] Information is unclear/confusing
+- [ ] Information is incorrect
+- [ ] Typo/grammar
+- [ ] Example doesn't work
+- [ ] Better structure/organization needed
+
+## 💡 Proposed Improvement
+<!-- How should it be documented instead? -->
+
+## 📝 Additional Context
+<!-- Further details that help with the improvement -->
+
+## ✔️ Checklist
+- [ ] I have read all relevant documentation
+- [ ] I can help with the improvement (write correction)

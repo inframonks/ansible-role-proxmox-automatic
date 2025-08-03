@@ -1,0 +1,24 @@
+---
+- name: Test proxmox_automatic role
+  hosts: all
+  gather_facts: false
+  vars:
+    # Überschreibe API-Calls für Tests
+    proxmox_automatic_install_dependencies: false
+    proxmox_automatic_api_host: "test.example.com"
+    proxmox_automatic_api_password: "test-password"
+    
+  tasks:
+    - name: Include role (dependencies only)
+      include_role:
+        name: proxmox_automatic
+        tasks_from: main
+      tags:
+        - proxmox_automatic_create_kickstart
+      when: false  # Verhindert tatsächliche VM-Erstellung in Tests
+
+    - name: Test variable merging
+      debug:
+        msg: "Testing hierarchical configuration system"
+      tags:
+        - test

@@ -1,35 +1,41 @@
 # Ansible Role: proxmox_automatic
 
-Diese Rolle erstellt automatisiert virtuelle Maschinen auf einem **Proxmox VE Cluster** mit individuellen **Kickstart-Konfigurationen**. Sie generiert maßgeschneiderte ISO-Dateien, lädt sie auf Proxmox hoch und startet die VMs mit komplexen Storage- und Netzwerkkonfigurationen.
+This role automatically creates virtual machines on a **Proxmox VE Cluster** with individual **Kickstart configurations**. It generates customized ISO files, uploads them to Proxmox, and starts VMs with complex storage and network configurations.
 
 ## 🚀 Features
 
-- **Hierarchische Konfiguration**: Defaults → group_vars → host_vars → Playbook-Variablen
-- **Dynamische Storage-Konfiguration**: Multi-Disk Support mit LVM und flexiblen Größen
-- **Automatische Kickstart-Generierung**: Individuelle `.cfg` Dateien pro VM
-- **ISO-Management**: Automatische ISO-Erstellung und Upload nach Proxmox
-- **Flexible Benutzer-Konfiguration**: Hierarchisches User-Management mit SSH-Keys
-- **Multi-Network Support**: Mehrere Netzwerkkarten mit VLAN-Support
-- **Rocky Linux 9 Optimiert**: Feste Repository-URLs, moderne Interface-Namen
+- **Automatic Dependency Installation**: Installs `xorriso` and `syslinux` on various distributions
+- **Hierarchical Configuration**: Defaults → group_vars → host_vars → Playbook variables
+- **Dynamic Storage Configuration**: Multi-disk support with LVM and flexible sizes
+- **Automatic Kickstart Generation**: Individual `.cfg` files per VM
+- **ISO Management**: Automatic ISO creation and upload to Proxmox
+- **Flexible User Configuration**: Hierarchical user management with SSH keys
+- **Multi-Network Support**: Multiple network interfaces with VLAN support
+- **Rocky Linux 9 Optimized**: Fixed repository URLs, modern interface names
 
-## 📋 Anforderungen
-
-### Auf dem Ansible Controller
-```bash
-# Rocky Linux / RHEL / CentOS
-sudo dnf install genisoimage
-
-# Ubuntu / Debian  
-sudo apt-get install genisoimage
-```
+## 📋 Requirements
 
 ### Proxmox VE
-- API-Benutzer mit VM-Verwaltungsrechten
-- Storage für VMs und ISOs
+- API user with VM management permissions
+- Storage for VMs and ISOs
 
-## 🔧 Verwendung
+### Ansible Controller Dependencies
 
-### Basis-Playbook
+**Automatic installation (recommended):**
+```yaml
+proxmox_automatic_install_dependencies: true
+```
+
+**Supported systems:**
+- Red Hat family (RHEL, Rocky, CentOS, Fedora)
+- Debian family (Debian, Ubuntu)
+- macOS (via Homebrew)
+- SUSE family (openSUSE, SLES)
+- Arch family (Arch, Manjaro)
+
+## 🔧 Quick Start
+
+### Minimal Configuration
 
 ```yaml
 ---
@@ -40,12 +46,15 @@ sudo apt-get install genisoimage
   vars:
     proxmox_automatic_api_host: "pve.example.com"
     proxmox_automatic_api_password: "{{ vault_proxmox_password }}"
+    proxmox_automatic_install_dependencies: true
 ```
 
-### Einfache VM mit Standard-Konfiguration
+### Simple VM Configuration
 
 ```yaml
 # inventory/host_vars/webserver01.yml
+proxmox_automatic_vmid: 101
+proxmox_automatic_hypervisor: "pve-node01"
 proxmox_automatic_networks:
   - name: net0
     vlanid: 100
@@ -54,42 +63,226 @@ proxmox_automatic_networks:
     gateway: "192.168.1.1"
 ```
 
-### Erweiterte Multi-Disk VM
+## 💡 Understanding Hierarchical Configuration
+
+The role uses an **intelligent merge system** that combines configurations from different levels:
+
+### 🔄 Merge Order
+```
+defaults/main.yml → group_vars/ → host_vars/ → Playbook variables
+(lowest)                                       (highest priority)
+```
+
+### 📝 Practical Example
+
+**1. defaults/main.yml** (Base for all VMs):
+```yaml
+proxmox_automatic_storage_config_defaults:
+  - name: virtio0
+    size: "20"
+    disk: vda
+    bootloader: true
+    # Standard LVM configuration
+```
+
+**2. group_vars/databases.yml** (All database servers):
+```yaml
+proxmox_automatic_storage_config_group_vars:
+  - name: virtio0
+    size: "40"  # Larger system disk for DB servers
+  - name: virtio1
+    size: "200"  # Additional database disk
+    disk: vdb
+```
+
+**3. host_vars/db01.yml** (Specific server):
+```yaml
+proxmox_automatic_storage_config_host_vars:
+  - name: virtio1
+    size: "500"  # Overrides group_vars: Even larger DB disk
+  - name: virtio2
+    size: "100"  # Additional backup disk
+    disk: vdc
+```
+
+**🎯 Final Result for db01:**
+```yaml
+# The role automatically generates:
+storage_final:
+  - name: virtio0
+    size: "40"        # Taken from group_vars
+    disk: vda         # Taken from defaults
+    bootloader: true  # Taken from defaults
+  - name: virtio1
+    size: "500"       # Overridden by host_vars
+    disk: vdb         # Taken from group_vars
+  - name: virtio2
+    size: "100"       # Added by host_vars
+    disk: vdc         # Added by host_vars
+```
+
+### ✅ Benefits of this System
+
+- **DRY (Don't Repeat Yourself)**: Define common configuration only once
+- **Flexibility**: Each level can selectively override or extend
+- **Maintainability**: Changes to group standards automatically affect all hosts
+- **Scalability**: New VMs automatically inherit sensible defaults
+
+## 🎛️ Configuration
+
+### Important Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `proxmox_automatic_api_host` | Proxmox Host | **required** |
+| `proxmox_automatic_api_user` | API User | `svc_ansible_rw@pam` |
+| `proxmox_automatic_api_password` | API Password | **required** |
+| `proxmox_automatic_install_dependencies` | Auto-install dependencies | `false` |
+| `proxmox_automatic_vmid` | VM ID | **required** |
+| `proxmox_automatic_hypervisor` | Target hypervisor | **required** |
+| `proxmox_automatic_memory` | RAM in MB | `2048` |
+| `proxmox_automatic_vcpu` | vCPUs | `2` |
+
+### Storage Configuration
+
+**Hierarchical System:**
+The role intelligently combines configurations from different levels:
+
+1. **`defaults/main.yml`** - Base configuration (virtio0 with standard partitioning)
+2. **`group_vars/webservers.yml`** - Group-specific additions 
+3. **`host_vars/server01.yml`** - Host-specific configuration
+4. **Playbook variables** - Highest priority, overrides everything
+
+**Combination Logic:**
+```yaml
+# defaults/main.yml defines:
+proxmox_automatic_storage_config_defaults:
+  - name: virtio0
+    size: "20"
+    disk: vda
+    bootloader: true
+
+# group_vars/databases.yml adds:
+proxmox_automatic_storage_config_group_vars:
+  - name: virtio0
+    size: "40"  # Overrides default size
+  - name: virtio1
+    size: "200"  # New disk for database
+
+# host_vars/db01.yml adds:
+proxmox_automatic_storage_config_host_vars:
+  - name: virtio2
+    size: "100"  # Additional backup disk
+
+# Result: VM gets all 3 disks
+# virtio0: 40GB (overridden), virtio1: 200GB, virtio2: 100GB
+```
+
+**Basic Example:**
+```yaml
+proxmox_automatic_storage_config:
+  - name: virtio0
+    size: "20"
+    # More options in complete documentation
+```
+
+### Network Configuration
+
+**Hierarchical System:**
+Similar to storage, network configurations are also intelligently combined:
+
+```yaml
+# defaults/main.yml - No networks (empty)
+proxmox_automatic_networks_defaults: []
+
+# group_vars/webservers.yml - Standard management interface
+proxmox_automatic_networks_group_vars:
+  - name: net0
+    vlanid: 100
+    bridge: "vmbr1"
+
+# host_vars/webserver01.yml - Host-specific IP + additional interface
+proxmox_automatic_networks_host_vars:
+  - name: net0
+    ip: "192.168.1.10"    # Extends group_vars configuration
+    netmask: "255.255.255.0"
+    gateway: "192.168.1.1"
+  - name: net1            # Additional backup interface
+    ip: "10.0.1.10"
+    netmask: "255.255.255.0"
+    vlanid: 200
+
+# Result: VM gets both interfaces with combined configuration
+```
+
+**Multi-Interface Support:**
+```yaml
+proxmox_automatic_networks:
+  - name: net0
+    ip: "192.168.1.10"
+    netmask: "255.255.255.0"
+    gateway: "192.168.1.1"
+    vlanid: 100
+  - name: net1
+    ip: "10.0.1.10"
+    netmask: "255.255.255.0"
+    vlanid: 200
+```
+
+### User Configuration
+
+```yaml
+proxmox_automatic_users:
+  - name: admin
+    password: "{{ vault_admin_password }}"
+    groups: ["wheel"]
+    ssh_key: "ssh-rsa AAAAB3... admin@example.com"
+    sudo_commands: "ALL"
+    sudo_nopasswd: true
+```
+
+## 🚦 Execution
+
+```bash
+# Install dependencies
+ansible-playbook playbooks/create_vms.yml --tags proxmox_automatic_dependencies
+
+# Create single VM
+ansible-playbook playbooks/create_vms.yml -l webserver01
+
+# Create group of VMs
+ansible-playbook playbooks/create_vms.yml -l webservers
+
+# Create all VMs
+ansible-playbook playbooks/create_vms.yml
+```
+
+## 🔍 Debugging
+
+```bash
+# Check kickstart files
+ls -la playbooks/kickstart-files/
+cat playbooks/kickstart-files/ks-hostname.cfg
+
+# Test only template generation
+ansible-playbook playbooks/create_vms.yml -l hostname --tags kickstart
+
+# Verbose output
+ansible-playbook playbooks/create_vms.yml -l hostname -vvv
+```
+
+## 📚 Advanced Examples
+
+<details>
+<summary><strong>Multi-Disk Database Server</strong></summary>
 
 ```yaml
 # inventory/host_vars/database01.yml
-proxmox_automatic_networks:
-  - name: net0
-    vlanid: 200
-    ip: "10.0.1.50"
-    netmask: "255.255.255.0"
-    gateway: "10.0.1.1"
-  - name: net1  # Backup-Netz
-    vlanid: 201
-    ip: "10.0.2.50"
-    netmask: "255.255.255.0"
-
 proxmox_automatic_storage_config:
-  - name: virtio0  # System-Disk
-    size: 40  # 40GB für System
+  - name: virtio0  # System
+    size: 40
     disk: vda
     bootloader: true
-    partitions:
-      - name: efi
-        mount: /boot/efi
-        size: 1024
-        fstype: efi
-        primary: true
-      - name: boot
-        mount: /boot
-        size: 1024
-        fstype: ext4
-        primary: true
-      - name: pv.root
-        size: 1024
-        grow: true
-        primary: true
-        type: pv
     vg:
       - name: system
         lv:
@@ -97,262 +290,45 @@ proxmox_automatic_storage_config:
             mount: /
             size: 4096
             fstype: xfs
-          - name: var
-            mount: /var
-            size: 8192
-            fstype: xfs
-          - name: log
-            mount: /var/log
-            size: 4096
-            fstype: xfs
           - name: swap
             mount: swap
             size: 4096
             fstype: swap
-          - name: tmp
-            mount: /tmp
-            size: 2048
-            fstype: xfs
           - name: home
             mount: /home
             size: 1024
-            grow: true  # Nimmt verbleibenden Platz
+            grow: true
             fstype: xfs
             
-  - name: virtio1  # Datenbank-Storage
-    size: 200  # 200GB für Datenbank
+  - name: virtio1  # Database Storage
+    size: 200
     disk: vdb
-    partitions:
-      - name: pv.data
-        size: 1024
-        grow: true
-        primary: true
-        type: pv
     vg:
       - name: database
         lv:
           - name: mysql
             mount: /var/lib/mysql
             size: 1024
-            grow: true  # Nutzt gesamte Disk
+            grow: true
             fstype: xfs
 ```
+</details>
 
-### Benutzer-Konfiguration
-
-```yaml
-# inventory/group_vars/webservers.yml
-proxmox_automatic_users:
-  - name: admin
-    password: "{{ vault_admin_password }}"
-    password_encrypted: false
-    gecos: "System Administrator"
-    uid: 1000
-    gid: 1000
-    groups: ["wheel", "docker"]
-    ssh_key: "ssh-rsa AAAAB3NzaC1yc2E... admin@example.com"
-    sudo_commands: "ALL"
-    sudo_nopasswd: true
-    
-  - name: webadmin
-    password: "{{ vault_webadmin_password }}"
-    password_encrypted: false
-    gecos: "Web Administrator"
-    uid: 1001
-    gid: 1001
-    groups: ["wheel"]
-    ssh_key: "ssh-rsa AAAAB3NzaC1yc2E... webadmin@example.com"
-    sudo_commands: "/bin/systemctl, /usr/bin/docker"
-    sudo_nopasswd: false
-    
-  - name: ansible
-    password: "{{ vault_ansible_password }}"
-    password_encrypted: false
-    gecos: "Ansible Service Account"
-    uid: 1002
-    gid: 1002
-    groups: []
-    ssh_key: "{{ ansible_ssh_key }}"
-    sudo_commands: "ALL"
-    sudo_nopasswd: true
-```
-
-### Entwicklungsumgebung mit minimaler Konfiguration
-
-```yaml
-# inventory/host_vars/dev01.yml
-proxmox_automatic_networks:
-  - name: net0
-    vlanid: 300
-    ip: "172.16.1.100"
-    netmask: "255.255.255.0"
-    gateway: "172.16.1.1"
-
-# Nur System-Disk, ohne zusätzlichen Storage
-proxmox_automatic_storage_config:
-  - name: virtio0
-    size: 25
-    disk: vda
-    bootloader: true
-    # Partitions werden von defaults übernommen
-    vg:
-      - name: system
-        lv:
-          - name: root
-            mount: /
-            size: 1024
-            grow: true  # Nimmt gesamten verfügbaren Platz
-            fstype: xfs
-          - name: swap
-            mount: swap
-            size: 2048
-            fstype: swap
-
-# Entwickler-spezifische Pakete
-proxmox_automatic_packages:
-  - qemu-guest-agent
-  - vim
-  - git
-  - docker-ce
-  - nodejs
-  - python3-pip
-  - code-server
-```
-
-## 📁 Verzeichnisstruktur
-
-```
-roles/proxmox_automatic/
-├── defaults/main.yml           # Standard-Konfiguration
-├── tasks/main.yml             # Haupttasks
-├── templates/
-│   └── kickstart.cfg.j2       # Kickstart-Template
-├── README.md                  # Diese Datei
-└── meta/main.yml             # Role-Metadaten
-
-playbooks/
-├── kickstart-files/          # Generierte .cfg Dateien
-├── kickstart-isos/           # Generierte .iso Dateien  
-└── create_vms.yml           # Hauptplaybook
-
-inventory/
-├── hosts.yml               # Inventory-Datei
-├── group_vars/
-│   ├── all.yml
-│   ├── webservers.yml
-│   └── databases.yml
-└── host_vars/
-    ├── webserver01.yml
-    ├── database01.yml
-    └── dev01.yml
-```
-
-## 🔧 Wichtige Variablen
-
-### Storage-Konfiguration
-
-| Variable | Beschreibung | Beispiel |
-|----------|--------------|----------|
-| `size` | Disk-Größe in GB | `40` |
-| `grow: true` | LV nutzt verbleibenden Platz | `true/false` |
-| `mount` | Mount-Point | `/`, `/var/log`, `swap` |
-| `fstype` | Dateisystem | `xfs`, `ext4`, `swap` |
-
-### Netzwerk-Konfiguration
-
-| Variable | Beschreibung | Beispiel |
-|----------|--------------|----------|
-| `vlanid` | VLAN-ID | `100` |
-| `ip` | IP-Adresse | `192.168.1.10` |
-| `netmask` | Netzmaske | `255.255.255.0` |
-| `gateway` | Gateway (optional) | `192.168.1.1` |
-
-### API-Konfiguration
-
-| Variable | Beschreibung | Standard |
-|----------|--------------|----------|
-| `proxmox_automatic_api_host` | Proxmox Host | **erforderlich** |
-| `proxmox_automatic_api_user` | API-Benutzer | `svc_ansible_rw@pam` |
-| `proxmox_automatic_api_password` | API-Passwort | **erforderlich** |
-
-## 💡 Hierarchische Konfiguration
-
-Die Role unterstützt ein mächtiges hierarchisches Konfigurationssystem:
-
-1. **defaults/main.yml** - Basis-Konfiguration
-2. **group_vars/** - Gruppen-spezifische Überschreibungen  
-3. **host_vars/** - Host-spezifische Konfiguration
-4. **Playbook-Variablen** - Höchste Priorität
-
-```yaml
-# Beispiel: Storage wird hierarchisch gemergt
-# defaults/main.yml definiert virtio0 + virtio1
-# group_vars/databases.yml überschreibt virtio0 Größe  
-# host_vars/db01.yml fügt virtio2 hinzu
-# Resultat: VM bekommt alle drei Disks mit finaler Konfiguration
-```
-
-## 🔒 Sicherheit
-
-```yaml
-# Empfohlene Passwort-Verschlüsselung
-ansible-vault create inventory/group_vars/all/vault.yml
-
-# vault.yml Inhalt:
-vault_admin_password: "secure_password_123"
-vault_ansible_password: "service_account_pwd"
-vault_proxmox_password: "proxmox_api_password"
-```
-
-## 🚦 Ausführung
-
-```bash
-# Einzelne VM erstellen
-ansible-playbook playbooks/create_vms.yml -i inventory/hosts.yml -l webserver01
-
-# Gruppe von VMs erstellen  
-ansible-playbook playbooks/create_vms.yml -i inventory/hosts.yml -l webservers
-
-# Alle VMs erstellen
-ansible-playbook playbooks/create_vms.yml -i inventory/hosts.yml
-
-# Mit Vault-Passwort
-ansible-playbook playbooks/create_vms.yml -i inventory/hosts.yml --ask-vault-pass
-```
-
-## 🔍 Debugging
-
-```bash
-# Generierte Kickstart-Datei überprüfen
-ls -la playbooks/kickstart-files/
-cat playbooks/kickstart-files/ks-webserver01.example.com.cfg
-
-# Template-Generierung testen (ohne VM-Erstellung)
-ansible-playbook playbooks/create_vms.yml -i inventory/hosts.yml -l webserver01 --tags kickstart
-
-# Verbose Output
-ansible-playbook playbooks/create_vms.yml -i inventory/hosts.yml -l webserver01 -vvv
-```
-
-## 📚 Erweiterte Beispiele
-
-### Kubernetes-Cluster
+<details>
+<summary><strong>Kubernetes Cluster Node</strong></summary>
 
 ```yaml
 # inventory/group_vars/kubernetes.yml
+proxmox_automatic_packages:
+  - docker-ce
+  - kubeadm
+  - kubelet
+  - kubectl
+
 proxmox_automatic_storage_config:
-  - name: virtio0
-    size: 30
-    # Standard-Partitionierung
-  - name: virtio1  # Container-Storage
+  - name: virtio1  # Container Storage
     size: 100
     disk: vdb
-    partitions:
-      - name: pv.containers
-        size: 1024
-        grow: true
-        primary: true
-        type: pv
     vg:
       - name: containers
         lv:
@@ -361,47 +337,18 @@ proxmox_automatic_storage_config:
             size: 1024
             grow: true
             fstype: xfs
-
-proxmox_automatic_packages:
-  - docker-ce
-  - kubeadm
-  - kubelet
-  - kubectl
-
-# host_vars/k8s-master01.yml
-proxmox_automatic_networks:
-  - name: net0
-    vlanid: 400
-    ip: "10.0.4.10"
-    netmask: "255.255.255.0"
-    gateway: "10.0.4.1"
-
-# host_vars/k8s-worker01.yml  
-proxmox_automatic_networks:
-  - name: net0
-    vlanid: 400
-    ip: "10.0.4.20"
-    netmask: "255.255.255.0"
-    gateway: "10.0.4.1"
 ```
+</details>
 
-### Monitoring-Stack
+<details>
+<summary><strong>Monitoring Stack</strong></summary>
 
 ```yaml
 # inventory/host_vars/monitoring01.yml
 proxmox_automatic_storage_config:
-  - name: virtio0
-    size: 40
-    # System-Disk
-  - name: virtio1  # Prometheus-Storage
+  - name: virtio1  # Prometheus Storage
     size: 500
     disk: vdb
-    partitions:
-      - name: pv.monitoring
-        size: 1024
-        grow: true
-        primary: true
-        type: pv
     vg:
       - name: monitoring
         lv:
@@ -410,27 +357,6 @@ proxmox_automatic_storage_config:
             size: 1024
             grow: true
             fstype: xfs
-  - name: virtio2  # Grafana + Logs
-    size: 100  
-    disk: vdc
-    partitions:
-      - name: pv.data
-        size: 1024
-        grow: true
-        primary: true
-        type: pv
-    vg:
-      - name: data
-        lv:
-          - name: grafana
-            mount: /var/lib/grafana
-            size: 10240  # 10GB
-            fstype: xfs
-          - name: logs
-            mount: /var/log/monitoring
-            size: 1024
-            grow: true  # Rest der Disk
-            fstype: xfs
 
 proxmox_automatic_networks:
   - name: net0  # Management
@@ -438,364 +364,212 @@ proxmox_automatic_networks:
     ip: "192.168.1.200"
     netmask: "255.255.255.0"
     gateway: "192.168.1.1"
-  - name: net1  # Monitoring-Netz
+  - name: net1  # Monitoring Network
     vlanid: 150
     ip: "10.0.15.200"
     netmask: "255.255.255.0"
 ```
+</details>
 
-## 🐛 Fehlerbehebung
+## 🐛 Troubleshooting
 
-### Häufige Probleme
+### Common Issues
 
-1. **"Unable to detect release version"**
-   - Problem: Repository-URLs mit Variablen
-   - Lösung: Feste Rocky Linux 9 URLs werden verwendet
+1. **Dependencies missing**
+   - **Solution:** Set `proxmox_automatic_install_dependencies: true`
 
-2. **"new lv is too large to fit in free space"** 
-   - Problem: LV-Größen überschreiten verfügbaren Speicher
-   - Lösung: `grow: true` für ein LV pro VG verwenden
+2. **"new lv is too large to fit in free space"**
+   - **Problem:** LV sizes exceed available storage
+   - **Solution:** Use `grow: true` for only one LV per VG
 
-3. **"Request boot drive 'vda' doesn't exist"**
-   - Problem: Mehrfache ignoredisk-Befehle  
-   - Lösung: Globale Disk-Konfiguration wird verwendet
+3. **SSH connection fails**
+   - **Problem:** SSH keys or user configuration issues
+   - **Solution:** Configure `proxmox_automatic_users` correctly
 
-4. **SSH-Verbindung schlägt fehl**
-   - Problem: SSH-Keys oder Benutzer-Konfiguration
-   - Lösung: `proxmox_automatic_users` korrekt konfigurieren
-
-### Logs überprüfen
+### Check Logs
 
 ```bash
-# Kickstart-Installation verfolgen
-# In Proxmox Console:
+# Follow kickstart installation (in Proxmox Console)
 tail -f /root/anaconda-ks-pre.log
 tail -f /root/anaconda-ks-post.log
 
-# Ansible-Logs
+# Ansible logs
 export ANSIBLE_LOG_PATH=/tmp/ansible.log
 ansible-playbook ... -vvv
 ```
 
-## 📝 Lizenz
-
-[Hier Lizenz einfügen]
-
-## 🤝 Beiträge
-
-Beiträge sind willkommen! Bitte erstellen Sie Issues und Pull Requests.
-
-## 📞 Support
-
-Bei Fragen oder Problemen erstellen Sie bitte ein Issue im Repository.
-| `proxmox_automatic_url_mirrorlist`       | Mirrorlist für Rocky-Install alternativ zu vorheriger Var. | Rocky Mirror URL                         |
-| `proxmox_automatic_repos`                | Zusätzliche Repository-Konfiguration                       | Siehe YAML-Beispiel                      |
-
-## 🧩 VM-spezifische Variablen (pro Host)
-
-| Variable                                 | Beschreibung                                               | Standardwert                             |
-|------------------------------------------|------------------------------------------------------------|------------------------------------------|
-| `proxmox_automatic_vmid`                 | Proxmox VM-ID                                              | **erforderlich**                         |
-| `proxmox_automatic_hypervisor`           | Ziel-Hypervisor (Hostname/FQDN)                            | **erforderlich**                         |
-| `proxmox_automatic_memory`               | Arbeitsspeicher (MB)                                       | `2048`                                   |
-| `proxmox_automatic_vcpu`                 | vCPUs                                                      | `2`                                      |
-| `proxmox_automatic_cpu_type`             | CPU-Typ (QEMU)                                             | `"x86-64-v3"`                        |
-| `proxmox_automatic_sockets`              | CPU-Sockelanzahl                                           | `1`                                      |
-| `proxmox_automatic_state`                | VM-Zustand (`present` / `absent`)                          | `"present"`                              |
-| `proxmox_automatic_storage`              | Manuelles Override des Storage                             | *(leer)*                                 |
-| `proxmox_automatic_kvm`                  | KVM aktivieren                                             | `true`                                   |
-| `proxmox_automatic_os_type`              | OS-Typ (`l26`, `win10`, etc.)                              | `"l26"`                                  |
-| `proxmox_automatic_onboot`               | VM beim Boot starten                                       | `true`                                   |
-| `proxmox_automatic_scsi_hw`              | SCSI-Controller                                            | `"virtio-scsi-single"`                   |
-| `proxmox_automatic_machine`              | QEMU-Maschine                                              | `"q35"`                                  |
-| `proxmox_automatic_hotplug`              | Hotplug-Funktion                                           | `"disk"`                                 |
-| `proxmox_automatic_boot_order`           | Boot-Reihenfolge                                           | `1`                                      |
-| `proxmox_automatic_boot_order_up_wait`   | Warten nach Start (s)                                      | `3`                                      |
-| `proxmox_automatic_boot_order_down_wait` | Warten nach Shutdown (s)                                   | `3`                                      |
-| `proxmox_automatic_storage_config`       | Storage-Konfiguration (siehe Beispiele)                    | `[]`                                     |
-| `proxmox_automatic_dhcp_enabled`         | Aktiviert DHCP für die Netzwerkkonfiguration               | `false`                                  |
-| `proxmox_automatic_networks`             | Liste zusätzlicher NICs (siehe Beispiele)                  | `[]`                                     |
-| `proxmox_automatic_use_traditional_interface_names` | Verwendet eth0, eth1 statt enp6s18, enp6s19      | `true`                                   |
-| `proxmox_automatic_interface_prefix`     | Interface-Präfix für traditionelle Namen                   | `"eth"`                                  |
-| `proxmox_automatic_vm_pool`              | Pool in dem die VM eingetragen wird                        | `omit`                                   |
-
-## Interface-Namen Konfiguration
-
-**Rocky Linux 9** verwendet standardmäßig "predictable network interface names" wie `enp6s18`, `enp6s19`, etc. Für automatisierte Deployments sind die traditionellen Namen `eth0`, `eth1` oft praktischer.
+## 🔒 Security
 
 ```yaml
-# Standard: Traditionelle Namen (empfohlen für Automation)
+# Recommended vault configuration
+ansible-vault create inventory/group_vars/all/vault.yml
+
+# vault.yml content:
+vault_admin_password: "secure_password_123"
+vault_ansible_password: "service_account_pwd"
+vault_proxmox_password: "proxmox_api_password"
+```
+
+## 📁 Directory Structure
+
+```
+roles/proxmox_automatic/
+├── defaults/main.yml           # Default configuration
+├── tasks/
+│   ├── main.yml               # Main tasks
+│   ├── install_dependencies.yml  # Dependency installation
+│   ├── create_kickstart.yml   # Kickstart generation
+│   └── create_vm.yml          # VM creation
+├── templates/
+│   └── kickstart.cfg.j2       # Kickstart template
+└── README.md                  # This file
+
+playbooks/
+├── kickstart-files/          # Generated .cfg files
+├── kickstart-isos/           # Generated .iso files  
+└── create_vms.yml           # Main playbook
+```
+
+## 📖 Complete Documentation
+
+<details>
+<summary><strong>All Variables (Click to expand)</strong></summary>
+
+### VM-specific Variables (per host)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `proxmox_automatic_vmid` | Proxmox VM ID | **required** |
+| `proxmox_automatic_hypervisor` | Target hypervisor | **required** |
+| `proxmox_automatic_memory` | Memory (MB) | `2048` |
+| `proxmox_automatic_vcpu` | vCPUs | `2` |
+| `proxmox_automatic_cpu_type` | CPU type | `"x86-64-v3"` |
+| `proxmox_automatic_sockets` | CPU sockets | `1` |
+| `proxmox_automatic_state` | VM state | `"present"` |
+| `proxmox_automatic_kvm` | Enable KVM | `true` |
+| `proxmox_automatic_os_type` | OS type | `"l26"` |
+| `proxmox_automatic_onboot` | Start VM on boot | `true` |
+| `proxmox_automatic_boot_order` | Boot order | `1` |
+| `proxmox_automatic_vm_pool` | VM pool | `omit` |
+
+### System Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `proxmox_automatic_timezone` | Timezone | `"Europe/Berlin"` |
+| `proxmox_automatic_keyboard_layout` | Keyboard layout | `"de"` |
+| `proxmox_automatic_language` | System language | `"en_US.UTF-8"` |
+| `proxmox_automatic_selinux_mode` | SELinux mode | `"enforcing"` |
+| `proxmox_automatic_firewall_enabled` | Enable firewall | `true` |
+
+### Network Detail Configuration
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `vlanid` | VLAN ID | `100` |
+| `ip` | IP address | `"192.168.1.10"` |
+| `netmask` | Netmask | `"255.255.255.0"` |
+| `gateway` | Gateway | `"192.168.1.1"` |
+| `bridge` | Proxmox bridge | `"vmbr1"` |
+| `model` | NIC model | `"virtio"` |
+| `mac` | MAC address | `"02:00:00:aa:bb:cc"` |
+| `mtu` | MTU size | `1500` |
+
+### Storage Detail Configuration
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `size` | Disk size in GB | `"20"` |
+| `disk` | Disk device | `"vda"` |
+| `bootloader` | Boot disk | `true` |
+| `grow` | LV uses remaining space | `true` |
+| `mount` | Mount point | `/`, `/var`, `swap` |
+| `fstype` | Filesystem | `xfs`, `ext4`, `swap` |
+
+</details>
+
+<details>
+<summary><strong>Interface Names Configuration</strong></summary>
+
+Rocky Linux 9 uses "predictable network interface names" by default. For automation, traditional names are often more practical:
+
+```yaml
+# Traditional names (recommended)
 proxmox_automatic_use_traditional_interface_names: true
 proxmox_automatic_interface_prefix: "eth"
 
-# Alternativ: Moderne predictable Namen
+# Modern predictable names
 proxmox_automatic_use_traditional_interface_names: false
-# Interface-Namen werden automatisch als enp6s18, enp6s19, etc. generiert
 ```
+</details>
 
-## Beispiel für Storage-Konfiguration
-
-Die Storage-Konfiguration wird in einem hierarchischen System verwaltet. Alle Disks werden direkt bei der VM-Erstellung hinzugefügt:
-
-- `proxmox_automatic_storage_config_defaults` - Standard-Konfiguration in defaults/main.yml
-- `proxmox_automatic_storage_config_group_vars` - Gruppen-spezifische Konfiguration
-- `proxmox_automatic_storage_config_host_vars` - Host-spezifische Konfiguration 
-- `proxmox_automatic_storage_config` - Playbook-Level Konfiguration (überschreibt alle anderen)
-
-```yaml
-proxmox_automatic_storage_config:
-  - name: virtio0  # Boot-Disk (immer erforderlich)
-    size: "20"
-    pve_options:
-      cache: "writeback"
-      iothread: 1
-      discard: "on"
-  - name: virtio1  # Zusätzliche Disk
-    size: "100"
-    pve_options:
-      cache: "none"
-      iothread: 1
-      ssd: 1
-      backup: 0
-  - name: virtio2
-    size: "50"
-```
-
-## Beispiel für weitere Netzwerkkarten
-
-Die Netzwerkkonfiguration wird nun in einem hierarchischen System verwaltet, ähnlich der Storage-Konfiguration. Die Konfiguration kann auf verschiedenen Ebenen definiert werden:
-
-- `proxmox_automatic_networks_defaults` - Standard-Konfiguration in defaults/main.yml
-- `proxmox_automatic_networks_group_vars` - Gruppen-spezifische Konfiguration
-- `proxmox_automatic_networks_host_vars` - Host-spezifische Konfiguration 
-- `proxmox_automatic_networks` - Playbook-Level Konfiguration (überschreibt alle anderen)
-
-Alle Netzwerkinterfaces werden sowohl in der VM-Konfiguration als auch im Kickstart-Template konfiguriert.
-
-```yaml
-proxmox_automatic_networks:
-  - name: net0
-    ip: "192.168.1.10"
-    netmask: "255.255.255.0"
-    gateway: "192.168.1.1"
-    bridge: vmbr1
-    vlanid: 30
-    model: virtio
-    mac: "02:00:00:aa:bb:cc"
-  - name: net1
-    ip: "192.168.2.10"
-    netmask: "255.255.255.0"
-    bridge: vmbr1
-    vlanid: 40
-    mtu: 9000
-    model: virtio
-```
-
-**Wichtig:** Das erste Interface (net0) sollte immer das Management-Interface mit Gateway sein. Zusätzliche Interfaces können optionale Gateway-Konfiguration haben.
-
-## Beispiel für Repositories
+<details>
+<summary><strong>Repository Configuration</strong></summary>
 
 ```yaml
 proxmox_automatic_repos:
   - name: "BaseOS"
     mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
-    cost: 0
   - name: "AppStream"
     mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=AppStream-$releasever"
-    cost: 0
-  - name: "Extras"
-    mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever"
-    cost: 0
-  - name: "CRB"+
-    mirrorlist: "https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$releasever$rltype"
-    cost: 0
   - name: "EPEL"
     baseurl: "https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/"
-    cost: 0
 ```
+</details>
 
----
-
-## 2️⃣ Variablen in group_vars/all.yml
+<details>
+<summary><strong>Complete Host-Vars Example</strong></summary>
 
 ```yaml
-proxmox_api_user: "root@pam"
-proxmox_api_password: "DeinPasswort"
-proxmox_api_token_id: "root@pam!ansible"
-proxmox_api_token_secret: "xxxxxxxxxxxxxxxx"
-proxmox_iso_storage: "cephfs"
-proxmox_vm_storage: "lvolumes"
-proxmox_vm_first_disk_size: "20G"
-```
-
----
-
-## Beispiel: Host-Vars
-
-Der proxmox_automatic_hypervisor ist der Hostname des Proxmox-Servers, auf dem die VM erstellt werden soll. Die VM-ID muss eindeutig sein.
-
-Der proxmox_automatic_api_host gegen den sich Ansible verbindet. Hier kann auch eine IP-Adresse angegeben werden.
-
-```yaml
-proxmox_automatic_api_host: 192.168.178.12
-proxmox_automatic_vmid: 17812
-proxmox_automatic_hypervisor: srv-hyp-01
+# inventory/host_vars/server01.yml
+proxmox_automatic_api_host: "192.168.1.100"
+proxmox_automatic_vmid: 101
+proxmox_automatic_hypervisor: "pve-node01"
 proxmox_automatic_memory: 4096
 proxmox_automatic_vcpu: 4
+
 proxmox_automatic_storage_config:
   - name: virtio1
     size: "100"
     pve_options:
       iothread: 1
       discard: "on"
+
 proxmox_automatic_networks:
   - name: net0
-    vlanid: 178
-    ip: "10.10.1.101"
+    vlanid: 100
+    ip: "192.168.1.101"
     netmask: "255.255.255.0"
-    gateway: "10.10.1.1"
+    gateway: "192.168.1.1"
     bridge: "vmbr1"
   - name: net1
-    ip: "10.10.2.101"
+    ip: "10.0.1.101"
     netmask: "255.255.255.0"
-    vlanid: 300
+    vlanid: 200
     bridge: "vmbr1"
     mtu: 9000
 ```
+</details>
 
----
+## 📞 Support
 
-# Prerequirements
+For questions or issues, please create an issue in the repository.
 
-Die folgenden Abhängigkeiten sind notwendig, um die ISO zu erstellen. Diese Rolle ist nicht für die Installation von Rocky Linux verantwortlich, sondern nur für die Erstellung der ISO.
-Die Rolle ist so konzipiert, dass sie auf einem Linux-Host ausgeführt wird, der Zugriff auf den Proxmox-Cluster hat.
+## 🤝 Contributing
 
-## 🔹 Red Hat / Rocky Linux / AlmaLinux
+Contributions are welcome! Please create issues and pull requests.
 
-Erforderliche Pakete:
-* xorriso
-* syslinux (für isohdpfx.bin)
+## 📄 License
 
-```bash
-sudo dnf install -y xorriso syslinux
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🔹 Debian / Ubuntu
+### MIT License Summary
 
-Erforderliche Pakete:
-* xorriso
-* isolinux (für /usr/share/syslinux/isohdpfx.bin)
-
-
-```bash
-sudo apt update
-sudo apt install -y xorriso isolinux syslinux
-```
-
-## 🔹 macOS
-
-Unter macOS empfiehlt sich zur einfachen Installation das Paketmanagement mit Homebrew.
-
-Installation (Homebrew erforderlich):
-
-```bash
-brew install xorriso syslinux
-```
-# Basis ISO erstellen
-
-## 📌 Schritt 1: Original ISO herunterladen und entpacken
-
-```bash
-
-curl -LO https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.6-x86_64-boot.iso
-
-sudo mkdir /mnt/iso
-sudo mount -o loop Rocky-9.6-x86_64-boot.iso /mnt/iso
-
-mkdir ~/rocky_custom_iso
-sudo rsync -a /mnt/iso/ ~/rocky_custom_iso/
-
-sudo umount /mnt/iso
-```
-
-## 📌 Schritt 2: Anpassung der Boot-Konfiguration (wichtig!)
-
-### BIOS (Legacy) – isolinux/isolinux.cfg:
-
-Bearbeiten der Datei:
-
-```bash
-vim ~/rocky_custom_iso/isolinux/isolinux.cfg
-```
-
-Ersetze die Zeile mit append initrd= durch:
-```bash
-label linux
-  menu label ^Install Rocky Linux 9.5 via Kickstart (2. CDROM)
-  kernel vmlinuz
-  append initrd=initrd.img inst.stage2=hd:LABEL=Rocky9 inst.ks=hd:/dev/sr1:/ks.cfg quiet
-```
-
-### EFI (UEFI) – EFI/BOOT/grub.cfg:
-
-Bearbeiten der Datei:
-```bash
-vim ~/rocky_custom_iso/EFI/BOOT/grub.cfg
-```
-
-Füge exakt folgenden Eintrag hinzu oder passe den bestehenden an:
-```bash
-set default=0
-set timeout=5
-
-menuentry 'Install Rocky Linux 9.5 via Kickstart (2. CDROM)' --class fedora --class gnu-linux --class os {
-    linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=Rocky9 inst.ks=hd:/dev/sr1:/ks.cfg quiet
-    initrdefi /images/pxeboot/initrd.img
-}
-```
-**Wichtig:** Die Label-Bezeichnung (Rocky9) muss exakt mit dem ISO-Label (nächster Schritt) übereinstimmen.
-
-## 📌 Schritt 3: ISO sauber erstellen (vollständig kompatibel mit BIOS + EFI)
-
-```bash
-cd ~/rocky_custom_iso
-
-sudo xorriso -as mkisofs \
-  -V 'Rocky9' \
-  -o ../rocky9-ks.iso \
-  -isohybrid-mbr /usr/share/syslinux/isohdpfx.bin \
-  -c isolinux/boot.cat \
-  -b isolinux/isolinux.bin \
-    -no-emul-boot -boot-load-size 4 -boot-info-table \
-  -eltorito-alt-boot \
-  -e images/efiboot.img \
-    -no-emul-boot -isohybrid-gpt-basdat \
-  .
-```
-
-## 📌 Schritt 4: Erstelle ein zweites ISO für Kickstart
-
-Kickstart-ISO erzeugen (enthält nur die ks.cfg) und wird generell von Ansible erledigt:
-```bash
-mkdir ~/ks_iso
-cp ks.cfg ~/ks_iso/
-
-xorriso -as mkisofs \
-  -V "KS_ISO" \
-  -J -R \
-  -o ~/ks.iso \
-  ~/ks_iso
-```
-
-## 📌 Schritt 5: Nutzung in Proxmox (Wichtig!)
-
-VM-Konfiguration:
-	•	BIOS: OVMF (UEFI) oder SeaBIOS (Legacy)
-	•	CD-ROM 1 (ide2): rocky9-ks.iso
-	•	CD-ROM 2 (ide3): ks.iso (Kickstart-Datei)
-
-Bootreihenfolge:
-	1.	Erste CD-ROM (rocky9-ks.iso)
-	2.	Zweite CD-ROM (ks.iso)
-
-Rocky sucht dank des Parameters inst.ks=hd:/dev/sr1:/ks.cfg explizit auf der zweiten CD-ROM nach der Kickstart-Datei.
+- ✅ **Commercial use** - Use in commercial projects
+- ✅ **Modification** - Modify and adapt the code
+- ✅ **Distribution** - Distribute copies
+- ✅ **Private use** - Use for private projects
+- ✅ **Patent use** - Use any patents from contributors
+- ❗ **License and copyright notice** - Include license in copies
+- ❌ **Liability** - No warranty or liability
+- ❌ **Warranty** - No warranty provided

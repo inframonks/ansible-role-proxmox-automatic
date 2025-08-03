@@ -1,0 +1,80 @@
+---
+name: 🐛 Bug Report
+about: Report a bug or issue with the role
+title: '[BUG] '
+labels: ['bug', 'needs-triage']
+assignees: ''
+---
+
+## 🐛 Bug Description
+<!-- A clear and concise description of the bug -->
+
+## 🔄 Reproduction Steps
+<!-- Steps to reproduce the issue -->
+
+**Steps:**
+1. 
+2. 
+3. 
+4. 
+
+## ✅ Expected Behavior
+<!-- What should happen? -->
+
+## ❌ Actual Behavior
+<!-- What happens instead? -->
+
+## 🖥️ Environment
+
+**Ansible Controller:**
+- OS: [e.g. Rocky Linux 9.5]
+- Ansible Version: [e.g. 2.15.0]
+- Python Version: [e.g. 3.9.16]
+
+**Proxmox VE:**
+- Version: [e.g. 8.1.4]
+- Cluster/Single Node: [e.g. 3-Node Cluster]
+
+**Role:**
+- Version/Commit: [e.g. v1.2.3 or commit abc123]
+- Dependencies installed: [yes/no]
+
+## 📋 Configuration
+
+<details>
+<summary>Relevant variables (remove sensitive data!)</summary>
+
+```yaml
+# Add your configuration here (without passwords!)
+proxmox_automatic_memory: 2048
+proxmox_automatic_vcpu: 2
+# ...
+```
+</details>
+
+## 📜 Logs
+
+<details>
+<summary>Ansible Output</summary>
+
+```
+# Add Ansible playbook output here (-vvv for more details)
+```
+</details>
+
+<details>
+<summary>Kickstart/VM Logs (if relevant)</summary>
+
+```
+# Logs from /root/anaconda-ks-*.log or Proxmox Console
+```
+</details>
+
+## 📎 Additional Information
+<!-- Screenshots, additional logs, etc. -->
+
+## ✔️ Checklist
+- [ ] I have read the README.md
+- [ ] I have searched for similar issues
+- [ ] I have removed sensitive data from the configuration
+- [ ] I have included relevant logs
