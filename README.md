@@ -1,5 +1,11 @@
 # Ansible Role: proxmox_automatic
 
+[![CI](https://github.com/inframonks/ansible-role-proxmox-automatic/workflows/CI/badge.svg)](https://github.com/inframonks/ansible-role-proxmox-automatic/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Ansible Galaxy](https://img.shields.io/badge/ansible--galaxy-proxmox__automatic-blue.svg)](https://galaxy.ansible.com/inframonks/proxmox_automatic)
+[![Ansible](https://img.shields.io/badge/ansible-2.14%2B-red.svg)](https://ansible.com)
+[![GitHub release](https://img.shields.io/github/release/inframonks/ansible-role-proxmox-automatic.svg)](https://github.com/inframonks/ansible-role-proxmox-automatic/releases)
+
 This role automatically creates virtual machines on a **Proxmox VE Cluster** with individual **Kickstart configurations**. It generates customized ISO files, uploads them to Proxmox, and starts VMs with complex storage and network configurations.
 
 ## 🚀 Features
@@ -33,7 +39,23 @@ proxmox_automatic_install_dependencies: true
 - SUSE family (openSUSE, SLES)
 - Arch family (Arch, Manjaro)
 
+### Collections
+
+**Required Ansible collections:**
+```bash
+ansible-galaxy collection install -r collections/requirements.yml
+```
+
+**Important:** This role requires `community.general` version 10.x, as version 11+ no longer includes the Proxmox modules.
+
 ## 🔧 Quick Start
+
+### Prerequisites
+
+**Install required collections:**
+```bash
+ansible-galaxy collection install -r collections/requirements.yml
+```
 
 ### Minimal Configuration
 
@@ -244,7 +266,8 @@ proxmox_automatic_users:
 ## 🚦 Execution
 
 ```bash
-# Install dependencies
+# Install collections and dependencies
+ansible-galaxy collection install -r collections/requirements.yml
 ansible-playbook playbooks/create_vms.yml --tags proxmox_automatic_dependencies
 
 # Create single VM

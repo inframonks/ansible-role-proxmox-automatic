@@ -51,7 +51,12 @@
 
 - name: "Process group_vars storage config (override defaults)"
   ansible.builtin.set_fact:
-    storage_dict: "{{ storage_dict | combine({item.name: storage_dict[item.name] | default({}) | combine(item, recursive=True)}) }}"
+    storage_dict: >-
+      {{
+        storage_dict | combine({
+          item.name: storage_dict[item.name] | default({}) | combine(item, recursive=True)
+        })
+      }}
   loop: "{{ proxmox_automatic_storage_config_group_vars | default([]) }}"
   tags:
     - proxmox_automatic
@@ -69,7 +74,12 @@
 
 - name: "Process host_vars storage config (override group vars)"
   ansible.builtin.set_fact:
-    storage_dict: "{{ storage_dict | combine({item.name: storage_dict[item.name] | default({}) | combine(item, recursive=True)}) }}"
+    storage_dict: >-
+      {{
+        storage_dict | combine({
+          item.name: storage_dict[item.name] | default({}) | combine(item, recursive=True)
+        })
+      }}
   loop: "{{ proxmox_automatic_storage_config_host_vars | default([]) }}"
   tags:
     - proxmox_automatic
@@ -87,7 +97,12 @@
 
 - name: "Process playbook storage config (override host vars)"
   ansible.builtin.set_fact:
-    storage_dict: "{{ storage_dict | combine({item.name: storage_dict[item.name] | default({}) | combine(item, recursive=True)}) }}"
+    storage_dict: >-
+      {{
+        storage_dict | combine({
+          item.name: storage_dict[item.name] | default({}) | combine(item, recursive=True)
+        })
+      }}
   loop: "{{ proxmox_automatic_storage_config_playbook | default(proxmox_automatic_storage_config | default([])) }}"
   tags:
     - proxmox_automatic
@@ -170,4 +185,3 @@
   tags:
     - proxmox_automatic_create_vm
     - proxmox_automatic
-  

@@ -1,14 +1,49 @@
 ---
 - name: "Build virtio disk configuration"
   ansible.builtin.set_fact:
-    virtio_config: "{{ virtio_config | default({}) | combine({item.name: (proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage)) + ':' + (item.size | string) + ((',discard=' + (item.pve_options | default({})).discard) if (item.pve_options | default({})).discard is defined else '') + ((',iothread=' + ((item.pve_options | default({})).iothread | string)) if (item.pve_options | default({})).iothread is defined else '') + ((',cache=' + (item.pve_options | default({})).cache) if (item.pve_options | default({})).cache is defined else '') + ((',backup=' + ((item.pve_options | default({})).backup | string)) if (item.pve_options | default({})).backup is defined else '') + ((',replicate=' + ((item.pve_options | default({})).replicate | string)) if (item.pve_options | default({})).replicate is defined else '') + ((',ssd=' + ((item.pve_options | default({})).ssd | string)) if (item.pve_options | default({})).ssd is defined else '')}) }}"
+    virtio_config: >-
+      {{
+        virtio_config | default({}) | combine({
+          item.name: [
+            proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage),
+            ':',
+            item.size | string,
+            (',discard=' + (item.pve_options | default({})).discard)
+              if (item.pve_options | default({})).discard is defined else '',
+            (',iothread=' + ((item.pve_options | default({})).iothread | string))
+              if (item.pve_options | default({})).iothread is defined else '',
+            (',cache=' + (item.pve_options | default({})).cache)
+              if (item.pve_options | default({})).cache is defined else '',
+            (',backup=' + ((item.pve_options | default({})).backup | string))
+              if (item.pve_options | default({})).backup is defined else '',
+            (',replicate=' + ((item.pve_options | default({})).replicate | string))
+              if (item.pve_options | default({})).replicate is defined else '',
+            (',ssd=' + ((item.pve_options | default({})).ssd | string))
+              if (item.pve_options | default({})).ssd is defined else ''
+          ] | join('')
+        })
+      }}
   loop: "{{ proxmox_automatic_storage_config | default([]) }}"
   loop_control:
     label: "{{ item.name }}"
 
 - name: "Build network interface configuration"
   ansible.builtin.set_fact:
-    net_config: "{{ net_config | default({}) | combine({item.name: 'virtio' + ('=' + item.mac if item.mac is defined else ',') + ',bridge=' + (item.bridge | default(proxmox_automatic_defaultbridge)) + ',tag=' + (item.vlanid | string) + ((',mtu=' + item.mtu | string) if item.mtu is defined else '') + ((',rate=' + item.rate | string) if item.rate is defined else '')}) }}"
+    net_config: >-
+      {{
+        net_config | default({}) | combine({
+          item.name: [
+            'virtio',
+            ('=' + item.mac if item.mac is defined else ','),
+            ',bridge=',
+            (item.bridge | default(proxmox_automatic_defaultbridge)),
+            ',tag=',
+            (item.vlanid | string),
+            ((',mtu=' + item.mtu | string) if item.mtu is defined else ''),
+            ((',rate=' + item.rate | string) if item.rate is defined else '')
+          ] | join('')
+        })
+      }}
   loop: "{{ proxmox_automatic_networks }}"
   loop_control:
     label: "{{ item.name }}"

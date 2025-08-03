@@ -26,6 +26,7 @@
     -J -R
     -graft-points ks.cfg={{ proxmox_automatic_files_dir }}/ks-{{ ansible_host }}.cfg
   delegate_to: localhost
+  changed_when: true
 
 - name: "Upload ISO to Proxmox"
   proxmox_automatic_upload_iso:

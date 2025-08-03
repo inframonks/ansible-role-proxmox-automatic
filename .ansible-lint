@@ -9,24 +9,8 @@ exclude_paths:
   - tests/
 
 skip_list:
-  - yaml[line-length]  # Wir verwenden yamllint dafür
-  - name[casing]       # Erlaubt deutsche Task-Namen
+  - yaml[line-length]  # We use yamllint for this
+  - name[casing]       # Allow descriptive task names
 
 warn_list:
-  - experimental       # Experimentelle Features als Warning
-
-# Erlaube bestimmte Tags
-allowed_tags:
-  - always
-  - never
-  - proxmox_automatic
-  - proxmox_automatic_dependencies
-  - proxmox_automatic_install_deps
-  - proxmox_automatic_create_kickstart
-  - proxmox_automatic_create_vm
-
-# Verwende vollqualifizierte Collection-Namen
-fully_qualified_collection_names: true
-
-# Ansible Version für Lint-Regeln
-ansible_version: "2.14"
+  - experimental       # Experimental features as warning

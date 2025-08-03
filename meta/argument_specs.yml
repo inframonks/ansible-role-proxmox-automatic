@@ -1,8 +1,9 @@
+---
 argument_specs:
   main:
-    short_description: "Automatisiertes VM-Provisioning mit Kickstart-ISO auf Proxmox VE"
+    short_description: "Automated VM provisioning with Kickstart ISO on Proxmox VE"
     description: >
-      Diese Rolle erzeugt individuelle Kickstart-Dateien und ISOs,
+      This role generates individual Kickstart files and ISOs,
       lädt sie auf einen Proxmox-Node hoch und provisioniert eine VM
       inklusive zusätzlicher Disks und Netzwerkkarten.
     options:

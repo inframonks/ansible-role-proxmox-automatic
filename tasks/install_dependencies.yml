@@ -52,8 +52,9 @@
   ansible.builtin.fail:
     msg: |
       Homebrew is required but not installed on macOS.
-      Please install Homebrew first: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  when: 
+      Please install Homebrew first:
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  when:
     - ansible_os_family == "Darwin"
     - homebrew_check.rc != 0
   tags:
@@ -66,7 +67,7 @@
       - xorriso
       - syslinux
     state: present
-  when: 
+  when:
     - ansible_os_family == "Darwin"
     - homebrew_check.rc == 0
   tags:
@@ -100,7 +101,8 @@
 - name: "Display installed packages information"
   ansible.builtin.debug:
     msg: |
-      Dependencies successfully installed for {{ ansible_os_family }} ({{ ansible_distribution }} {{ ansible_distribution_version }})
+      Dependencies successfully installed for {{ ansible_os_family }}
+      ({{ ansible_distribution }} {{ ansible_distribution_version }})
       Installed packages:
       {% if ansible_os_family == "RedHat" %}
       - xorriso (ISO creation tool)
@@ -153,7 +155,7 @@
   ansible.builtin.debug:
     msg: "Found isohdpfx.bin at: {{ item.stat.path }}"
   loop: "{{ syslinux_files.results | default([]) }}"
-  when: 
+  when:
     - ansible_os_family != "Darwin"
     - item.stat.exists
   tags:
@@ -166,7 +168,7 @@
       WARNING: isohdpfx.bin not found in common locations.
       This file is required for creating hybrid ISOs.
       Please check your syslinux/isolinux installation.
-  when: 
+  when:
     - ansible_os_family != "Darwin"
     - syslinux_files.results | selectattr('stat.exists') | list | length == 0
   tags:
