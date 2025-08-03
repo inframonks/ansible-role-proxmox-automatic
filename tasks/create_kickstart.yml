@@ -8,23 +8,23 @@
     - "{{ proxmox_automatic_files_dir }}"
     - "{{ proxmox_automatic_iso_dir }}"
   delegate_to: localhost
+  run_once: true
 
 - name: "Create kickstart file"
   ansible.builtin.template:
     src: "kickstart.cfg.j2"
-    dest: "{{ proxmox_automatic_files_dir }}/ks-{{ inventory_hostname }}.cfg"
+    dest: "{{ proxmox_automatic_files_dir }}/ks-{{ ansible_host }}.cfg"
     mode: "0644"
+    force: true
   delegate_to: localhost
 
 - name: "Create ISO file"
   ansible.builtin.command: >
     xorriso -as mkisofs
-    -o {{ proxmox_automatic_iso_dir }}/ks-{{ inventory_hostname }}.iso
-    -V KS_{{ inventory_hostname }}
+    -o {{ proxmox_automatic_iso_dir }}/ks-{{ ansible_host }}.iso
+    -V KS_{{ ansible_host }}
     -J -R
-    -graft-points ks.cfg={{ proxmox_automatic_files_dir }}/ks-{{ inventory_hostname }}.cfg
-  args:
-    creates: "{{ proxmox_automatic_iso_dir }}/ks-{{ inventory_hostname }}.iso"
+    -graft-points ks.cfg={{ proxmox_automatic_files_dir }}/ks-{{ ansible_host }}.cfg
   delegate_to: localhost
 
 - name: "Upload ISO to Proxmox"
@@ -34,6 +34,6 @@
     api_password: "{{ proxmox_automatic_api_password }}"
     storage: "{{ proxmox_automatic_pve_iso_storage }}"
     node: "{{ proxmox_automatic_hypervisor.split('.')[0] }}"
-    iso_path: "{{ proxmox_automatic_iso_dir }}/ks-{{ inventory_hostname }}.iso"
-    iso_name: "ks-{{ inventory_hostname }}.iso"
+    iso_path: "{{ proxmox_automatic_iso_dir }}/ks-{{ ansible_host }}.iso"
+    iso_name: "ks-{{ ansible_host }}.iso"
   delegate_to: localhost

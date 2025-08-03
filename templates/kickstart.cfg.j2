@@ -3,49 +3,117 @@
 %pre --interpreter=/usr/bin/bash --log=/root/anaconda-ks-pre.log
 %end
 
-# INSTALL USING TEXT MODE
+# INSTALL USING CONFIGURABLE MODE
 text
 
 # KEYBOARDS, LANGUAGES, TIMEZONE
-keyboard --vckeymap=de --xlayouts='de (nodeadkeys)','us'
-lang en_US.UTF-8
-timezone {{ proxmox_automatic_timezone | default("Europe/Berlin") }} --utc
-{% if proxmox_automatic_ntp_servers and proxmox_automatic_ntp_servers != "" %}
+keyboard --vckeymap={{ proxmox_automatic_keyboard_layout }} --xlayouts='{{ proxmox_automatic_keyboard_variants }}'
+lang {{ proxmox_automatic_language }}
+timezone {{ proxmox_automatic_timezone }} --utc
+{% if proxmox_automatic_ntp_servers %}
 {% for ntp in proxmox_automatic_ntp_servers %}
 timesource --ntp-server {{ ntp }}
 {% endfor %}
 {% endif %}
 
 # NETWORK, SELINUX, FIREWALL
-# Set network only on first interface, and set hostname.
-{% if proxmox_automatic_dhcp_enabled | default(false) %}
+# Multi-interface network configuration with configurable interface naming
+{% if proxmox_automatic_dhcp_enabled %}
+{%   if proxmox_automatic_use_traditional_interface_names %}
 network --bootproto=dhcp --device=eth0 --onboot=on --hostname=plf-tmpl
+{%   else %}
+network --bootproto=dhcp --device=enp6s18 --onboot=on --hostname=plf-tmpl
+{%   endif %}
 {% else %}
-network --bootproto=static --onboot=on --ip={{ proxmox_automatic_networks[0].ip }} --netmask={{ proxmox_automatic_networks[0].netmask }} --gateway={{ proxmox_automatic_networks[0].gateway }} --nameserver={{ proxmox_automatic_dns_servers | join(',') }} --hostname={{ inventory_hostname }}
+{%   for network in proxmox_automatic_networks %}
+{%     if proxmox_automatic_use_traditional_interface_names %}
+{%       set device = 'eth' + loop.index0|string %}
+{%     else %}
+{%       set device = 'enp6s' + (18 + loop.index0)|string %}
+{%     endif %}
+{%     if loop.first %}
+network --bootproto=static --device={{ device }} --onboot=on --activate --ip={{ network.ip }} --netmask={{ network.netmask }} --gateway={{ network.gateway }} --nameserver={{ proxmox_automatic_dns_servers | join(',') }} --hostname={{ ansible_host }}
+{%     else %}
+network --bootproto=static --device={{ device }} --onboot=on --activate --ip={{ network.ip }} --netmask={{ network.netmask }}{% if network.gateway is defined %} --gateway={{ network.gateway }}{% endif %}
+{%     endif %}
+{%   endfor %}
 {% endif %}
-selinux --enforcing
-firewall --enabled --ssh
+
+selinux --{{ proxmox_automatic_selinux_mode }}
+
+{% if proxmox_automatic_firewall_enabled %}
+firewall --enabled{% for service in proxmox_automatic_firewall_services %} --service={{ service }}{% endfor %}
+{% else %}
+firewall --disabled
+{% endif %}
+
 firstboot --disable
 
 # DISKS, PARTITIONS, VOLUME GROUPS, LOGICAL VOLUMES
-# Install target is usually sda, vda, or nvme0n1; adjust all references below accordingly.
-# The EFI & /boot partitions are explicitly set here, but some people just use `reqpart`.
-ignoredisk --only-use=vda
+# Storage configuration is now dynamic based on proxmox_automatic_storage_config
+
+{% set boot_storage = proxmox_automatic_storage_config | selectattr('bootloader', 'defined') | selectattr('bootloader') | first %}
+{% set all_disks = proxmox_automatic_storage_config | selectattr('disk', 'defined') | map(attribute='disk') | list %}
+
+# Global disk configuration
+ignoredisk --only-use={{ all_disks | join(',') }}
 zerombr
 
-{% set disk_size_raw = proxmox_automatic_first_disk_size | regex_replace('[^0-9]', '') | int %}
-{% set disk_size_mib = (disk_size_raw * 1024) - 6400 %}
+{% if boot_storage is defined %}
+{% if proxmox_automatic_use_traditional_interface_names %}
+bootloader --location=mbr --boot-drive={{ boot_storage.disk }} --append='rootdelay=300 console=ttyS0 no_timer_check crashkernel=auto net.ifnames=0 biosdevname=0'
+{% else %}
+bootloader --location=mbr --boot-drive={{ boot_storage.disk }} --append='rootdelay=300 console=ttyS0 no_timer_check crashkernel=auto'
+{% endif %}
+{% endif %}
 
-# First disk
-clearpart --all --initlabel --disklabel=gpt --drives=vda
-#bootloader --location=mbr --boot-drive=vda --append='rootdelay=300 console=ttyS0 no_timer_check crashkernel=auto'
-part pv.root     --label=volumes  --size=1024  --grow         --asprimary  --ondisk=vda
-part /boot/efi   --label=efi      --size=1024  --fstype=efi   --asprimary
-part /boot       --label=boot     --size=1024  --fstype=ext4  --asprimary
-volgroup system pv.root
-logvol /         --label=root     --size={{ disk_size_mib }} --fstype=xfs --vgname=system --name=root
-logvol /var/log  --label=log      --size=4096  --fstype=xfs --vgname=system --name=log
-#logvol swap      --label=swap     --size=1024               --vgname=system --name=swap
+{% for storage in proxmox_automatic_storage_config %}
+{% if storage.disk is defined %}
+# Storage device: {{ storage.name }} ({{ storage.disk }})
+
+# Clear and prepare disk {{ storage.disk }}
+clearpart --all --initlabel --disklabel=gpt --drives={{ storage.disk }}
+
+{% if storage.partitions is defined %}
+# Partitions for {{ storage.name }}
+{% for partition in storage.partitions %}
+{% if partition.type is defined and partition.type == 'pv' %}
+part {{ partition.name }}     --label={{ partition.name.replace('.', '_') }}  --size={{ partition.size }}{% if partition.grow is defined and partition.grow %}  --grow{% endif %}{% if partition.primary is defined and partition.primary %}         --asprimary{% endif %}  --ondisk={{ storage.disk }}
+
+{% else %}
+part {{ partition.mount }}   --label={{ partition.name }}      --size={{ partition.size }}{% if partition.fstype is defined %}  --fstype={{ partition.fstype }}{% endif %}{% if partition.primary is defined and partition.primary %}   --asprimary{% endif %}
+
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if storage.vg is defined %}
+# Volume Groups and Logical Volumes for {{ storage.name }}
+{% for vg in storage.vg %}
+{% set pv_name = storage.partitions | selectattr('type', 'defined') | selectattr('type', 'equalto', 'pv') | map(attribute='name') | first | default('pv.root') %}
+volgroup {{ vg.name }} {{ pv_name }}
+{% if vg.lv is defined %}
+{% for lv in vg.lv %}
+logvol {{ lv.mount }}  --label={{ lv.name }}      --size={{ lv.size }}{% if lv.fstype is defined %}  --fstype={{ lv.fstype }}{% endif %}{% if lv.grow is defined and lv.grow %}  --grow{% endif %} --vgname={{ vg.name }} --name={{ lv.name }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% else %}
+# Additional storage device: {{ storage.name }} (no disk mapping - PVE only)
+{% if storage.vg is defined %}
+# Additional Volume Groups for {{ storage.name }}
+{% for vg in storage.vg %}
+{% if vg.lv is defined %}
+{% for lv in vg.lv %}
+# Additional logical volume {{ lv.name }} will be created post-installation
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
 
 # INSTALLATION SOURCE, EXTRA REPOSITOROIES, PACKAGE GROUPS, PACKAGES
 # Installation Source
@@ -63,12 +131,12 @@ repo --name={{ repo.name }}{% if repo.mirrorlist is defined %} --mirrorlist={{ r
 {% endfor %}
 
 # Remove `@guest-agents` group if this is not a VM.
-%packages --retries=5 --timeout=20 --inst-langs=en
-@^minimal-environment
+%packages --retries={{ proxmox_automatic_package_retries }} --timeout={{ proxmox_automatic_package_timeout }} --inst-langs={{ proxmox_automatic_install_languages }}
+{{ proxmox_automatic_minimal_environment }}
 kernel-devel
 openssh-server
 # Add additional packages here
-{% if proxmox_automatic_packages is defined and proxmox_automatic_packages != "" %}
+{% if proxmox_automatic_packages %}
 {{ proxmox_automatic_packages | join('\n') }}
 {% endif %}
 %end
@@ -76,20 +144,39 @@ openssh-server
 # GROUPS, USERS, ENABLE SSH, FINISH INSTALL
 rootpw --lock
 
-user --name={{ proxmox_automatic_admin_user }} --password='{{ proxmox_automatic_admin_password }}' --plaintext --gecos='{{ proxmox_automatic_admin_gecos }}' --groups='wheel,{{ proxmox_automatic_admin_user }}(1000)' --gid=1000
-{% if proxmox_automatic_admin_ssh_key and proxmox_automatic_admin_ssh_key != "" %}
-sshkey --username={{ proxmox_automatic_admin_user }} '{{ proxmox_automatic_admin_ssh_key }}'
+# Create users from hierarchical configuration
+{% for user in proxmox_automatic_users_merged | default(proxmox_automatic_users) %}
+{%- set user_line = "user --name=" + user.name -%}
+{%- if user.password is defined and user.password != "" -%}
+  {%- set user_line = user_line + " --password='" + user.password + "'" -%}
+  {%- if user.password_encrypted is defined and user.password_encrypted -%}
+    {%- set user_line = user_line + " --iscrypted" -%}
+  {%- else -%}
+    {%- set user_line = user_line + " --plaintext" -%}
+  {%- endif -%}
+{%- endif -%}
+{%- if user.gecos is defined -%}
+  {%- set user_line = user_line + " --gecos='" + user.gecos + "'" -%}
+{%- endif -%}
+{%- if user.groups is defined and user.groups | length > 0 -%}
+  {%- set groups_str = user.groups | join(",") -%}
+  {%- set user_line = user_line + " --groups='" + groups_str + "'" -%}
+{%- endif -%}
+{%- if user.uid is defined -%}
+  {%- set user_line = user_line + " --uid=" + user.uid|string -%}
+{%- endif -%}
+{%- if user.gid is defined -%}
+  {%- set user_line = user_line + " --gid=" + user.gid|string -%}
+{%- endif %}
+{{ user_line }}
+{% if user.ssh_key is defined and user.ssh_key != "" %}
+sshkey --username={{ user.name }} '{{ user.ssh_key }}'
 {% endif %}
+{% endfor %}
 
-{% if proxmox_automatic_service_user is defined and proxmox_automatic_service_user != "" %}
-user --name={{ proxmox_automatic_service_user }} --password='{{ proxmox_automatic_service_user }}' --plaintext --gecos="Ansible Serviceaccount" --gid=1001
-{% if proxmox_automatic_service_ssh_key and proxmox_automatic_service_ssh_key != "" %}
-sshkey --username={{ proxmox_automatic_service_user }} '{{ proxmox_automatic_service_ssh_key }}'
-{% endif %}
-{% endif %}
+services --enabled='{{ proxmox_automatic_enabled_services | join(",") }}'{% if proxmox_automatic_disabled_services | length > 0 %} --disabled='{{ proxmox_automatic_disabled_services | join(",") }}'{% endif %}
 
-services --enabled='sshd.service,rsyslog,chronyd,NetworkManager'
-reboot --eject
+reboot
 
 # ENABLE EMERGENCY KERNEL DUMPS FOR DEBUGGING
 %addon com_redhat_kdump --reserve-mb=auto --enable
@@ -98,55 +185,19 @@ reboot --eject
 # POST-INSTALLATION SCRIPT
 %post --interpreter=/usr/bin/bash --log=/root/anaconda-ks-post.log --erroronfail
 
-# Sudoers Datei erstellen (User braucht kein Passwort für sudo)
-/usr/bin/echo "{{ proxmox_automatic_admin_user }} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
-/usr/bin/chmod 440 /etc/sudoers.d/user_{{ proxmox_automatic_admin_user }}
-
-{% if proxmox_automatic_service_user is defined and proxmox_automatic_service_user != "" %}
-/usr/bin/echo "{{ proxmox_automatic_service_user }} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user_{{ proxmox_automatic_service_user }}
-/usr/bin/chmod 440 /etc/sudoers.d/user_{{ proxmox_automatic_service_user }}
+# Create sudoers files for all users
+{% for user in proxmox_automatic_users_merged | default(proxmox_automatic_users) %}
+{% if user.sudo_commands is defined %}
+{% if user.sudo_nopasswd is defined and user.sudo_nopasswd %}
+/usr/bin/echo "{{ user.name }} ALL=(ALL) NOPASSWD: {{ user.sudo_commands }}" > /etc/sudoers.d/user_{{ user.name }}
+{% else %}
+/usr/bin/echo "{{ user.name }} ALL=(ALL) {{ user.sudo_commands }}" > /etc/sudoers.d/user_{{ user.name }}
 {% endif %}
+/usr/bin/chmod 440 /etc/sudoers.d/user_{{ user.name }}
+{% endif %}
+{% endfor %}
 
 # Install Updates
 /usr/bin/dnf update -y
-
-# Remove cockpit and dhcpv6 from firewall
-/usr/bin/firewall-cmd --permanent --remove-service=cockpit
-/usr/bin/firewall-cmd --permanent --remove-service=dhcpv6-client
-
-{% if proxmox_automatic_remove_repos is defined and proxmox_automatic_remove_repos %}
-# Remove all repositories that are not needed anymore
-/usr/bin/rm -f /etc/yum.repos.d/rocky-* /etc/yum.repos.d/epel-*
-
-/usr/bin/echo "Konfiguriere lokale Repositories ..."
-
-/usr/bin/cat <<EOF > /etc/yum.repos.d/local.repo
-{% for repo in proxmox_automatic_repos %}
-[{{ repo.name | lower }}]
-name={{ repo.name_long | default(repo.name) }}
-{% if repo.mirrorlist is defined -%}
-mirrorlist={{ repo.mirrorlist }}
-{% endif %}
-{% if repo.baseurl is defined -%}
-baseurl={{ repo.baseurl }}
-{% endif %}
-enabled=1
-{% if repo.metadata_expire is defined -%}
-metadata_expire={{ repo.metadata_expire | default('6h') }}
-{% else %}
-metadata_expire=6h
-{% endif %}
-{% endif %}
-{% if repo.gpgcheck is defined -%}
-gpgcheck={{ repo.gpgcheck | default('0') }}
-gpgkey={{ repo.gpgkey | default('file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-9') }}
-{% else %}
-gpgcheck=0
-{% endif %}
-cost={{ repo.cost | default('100') }}
-
-{% endfor %}
-EOF
-{% endif %}
 
 %end

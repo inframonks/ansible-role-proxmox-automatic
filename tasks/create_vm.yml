@@ -1,4 +1,18 @@
 ---
+- name: "Build virtio disk configuration"
+  ansible.builtin.set_fact:
+    virtio_config: "{{ virtio_config | default({}) | combine({item.name: (proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage)) + ':' + (item.size | string) + ((',discard=' + (item.pve_options | default({})).discard) if (item.pve_options | default({})).discard is defined else '') + ((',iothread=' + ((item.pve_options | default({})).iothread | string)) if (item.pve_options | default({})).iothread is defined else '') + ((',cache=' + (item.pve_options | default({})).cache) if (item.pve_options | default({})).cache is defined else '') + ((',backup=' + ((item.pve_options | default({})).backup | string)) if (item.pve_options | default({})).backup is defined else '') + ((',replicate=' + ((item.pve_options | default({})).replicate | string)) if (item.pve_options | default({})).replicate is defined else '') + ((',ssd=' + ((item.pve_options | default({})).ssd | string)) if (item.pve_options | default({})).ssd is defined else '')}) }}"
+  loop: "{{ proxmox_automatic_storage_config | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Build network interface configuration"
+  ansible.builtin.set_fact:
+    net_config: "{{ net_config | default({}) | combine({item.name: 'virtio' + ('=' + item.mac if item.mac is defined else ',') + ',bridge=' + (item.bridge | default(proxmox_automatic_defaultbridge)) + ',tag=' + (item.vlanid | string) + ((',mtu=' + item.mtu | string) if item.mtu is defined else '') + ((',rate=' + item.rate | string) if item.rate is defined else '')}) }}"
+  loop: "{{ proxmox_automatic_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: "Create VM"
   community.general.proxmox_kvm:
     api_host: "{{ proxmox_automatic_api_host }}"
@@ -6,7 +20,7 @@
     api_password: "{{ proxmox_automatic_api_password }}"
     node: "{{ proxmox_automatic_hypervisor }}"
     vmid: "{{ proxmox_automatic_vmid }}"
-    name: "{{ inventory_hostname }}"
+    name: "{{ ansible_host }}"
     memory: "{{ proxmox_automatic_memory | default(2048) }}"
     cores: "{{ proxmox_automatic_vcpu | default(2) }}"
     cpu: "{{ proxmox_automatic_cpu_type | default('x86-64-v3') }}"
@@ -14,7 +28,7 @@
     state: "{{ proxmox_automatic_state | default('present') }}"
     ide:
       ide2: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/{{ proxmox_automatic_iso_name | default('rocky9.6-ks') }}.iso"
-      ide3: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/ks-{{ inventory_hostname }}.iso"
+      ide3: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/ks-{{ ansible_host }}.iso"
     bios: ovmf
     efidisk0:
       storage: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}"
@@ -23,55 +37,18 @@
       pre_enrolled_keys: true
     tpmstate0:
       storage: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}"
-    virtio:
-      virtio0: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}:{{ proxmox_automatic_first_disk_size | regex_replace('[GM]', '') }}"
-    net:
-      net0: "virtio{% if proxmox_automatic_networks[0].mac is defined %}={{ proxmox_automatic_networks[0].mac }}{% else %},{% endif %},bridge={{ proxmox_automatic_networks[0].bridge | default(proxmox_automatic_defaultbridge) }},tag={{ proxmox_automatic_networks[0].vlanid }}{% if proxmox_automatic_networks[0].mtu is defined %},{{ proxmox_automatic_networks[0].mtu }}{% endif %}"
+    virtio: "{{ virtio_config }}"
+    net: "{{ net_config }}"
     kvm: "{{ proxmox_automatic_kvm | default(true) }}"
     ostype: "{{ proxmox_automatic_os_type | default('l26') }}"
     onboot: "{{ proxmox_automatic_onboot | default(true) }}"
     scsihw: "{{ proxmox_automatic_scsi_hw | default('virtio-scsi-single') }}"
     machine: "{{ proxmox_automatic_machine | default('q35') }}"
     hotplug: "{{ proxmox_automatic_hotplug | default('disk') }}"
-    startup: "order={{ proxmox_automatic_boot_order | default(1) }},up={{ proxmox_automatic_boot_order_up_wait | default(2) }},down={{ proxmox_automatic_boot_order_down_wait | default(3) }}"
+    startup: "{{ 'order=' + (proxmox_automatic_boot_order | default(1) | string) + ',up=' + (proxmox_automatic_boot_order_up_wait | default(2) | string) + ',down=' + (proxmox_automatic_boot_order_down_wait | default(3) | string) if proxmox_automatic_startup_order is defined else omit }}"
     agent: enabled=1
     pool: "{{ proxmox_automatic_vm_pool | default(omit) }}"
   delegate_to: localhost
-
-- name: "Add additional disks"
-  community.general.proxmox_disk:
-    api_host: "{{ proxmox_automatic_api_host }}"
-    api_user: "{{ proxmox_automatic_api_user }}"
-    api_password: "{{ proxmox_automatic_api_password }}"
-    vmid: "{{ proxmox_automatic_vmid }}"
-    disk: "{{ item.name }}"
-    storage: "{{ item.storage | default(proxmox_automatic_pve_vm_storage) }}"
-    size: "{{ item.size | regex_replace('[GM]', '') }}"
-  loop: "{{ proxmox_automatic_disks | default([]) }}"
-  loop_control:
-    label: "{{ proxmox_automatic_hypervisor }} - {{ item.name }}"
-  delegate_to: localhost
-  when: proxmox_automatic_disks is defined and proxmox_automatic_disks | length > 0
-
-- name: "Add additional network adapters"
-  community.general.proxmox_nic:
-    api_host: "{{ proxmox_automatic_api_host }}"
-    api_user: "{{ proxmox_automatic_api_user }}"
-    api_password: "{{ proxmox_automatic_api_password }}"
-    vmid: "{{ proxmox_automatic_vmid }}"
-    interface: "{{ item.name }}"
-    bridge: "{{ item.bridge | default(proxmox_automatic_defaultbridge) }}"
-    tag: "{{ item.vlanid | default(0) }}"
-    model: "{{ item.model | default('virtio') }}"
-    mac: "{{ item.mac | default(omit) }}"
-    mtu: "{{ item.mtu | default(omit) }}"
-    rate: "{{ item.rate | default(omit) }}"
-    state: "present"
-  loop: "{{ proxmox_automatic_networks | default([]) }}"
-  loop_control:
-    label: "{{ proxmox_automatic_hypervisor }} - {{ item.name }}"
-  delegate_to: localhost
-  when: proxmox_automatic_networks is defined and proxmox_automatic_networks | length > 0
 
 - name: "Start VM"
   community.general.proxmox_kvm:

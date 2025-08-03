@@ -6,6 +6,10 @@ proxmox_automatic_first_disk_size: "20"  # IN GB
 proxmox_automatic_pve_iso_storage: "cephfs"
 proxmox_automatic_pve_vm_storage: "volumes"
 proxmox_automatic_defaultbridge: "vmbr1"
+# Interface Naming Configuration
+# Set to true for traditional names (eth0, eth1), false for modern names (enp6s18, enp6s19)
+# Modern names are required for Rocky Linux 9 and newer distributions
+proxmox_automatic_use_traditional_interface_names: false
 proxmox_automatic_vmid: >-
   {{ proxmox_automatic_networks[0].vlanid | string ~
     '%03d' | format(proxmox_automatic_networks[0].ip.split('.')[-1] | int) }}
@@ -19,38 +23,127 @@ proxmox_automatic_ntp_servers:
 proxmox_automatic_dns_servers:
   - "1.0.0.1"
   - "1.1.1.1"
-proxmox_automatic_admin_user: "admin"
-proxmox_automatic_admin_password: "<filleme>"
-proxmox_automatic_admin_ssh_key: "<fille with publickey>"
-proxmox_automatic_admin_gecos: "Admin User"
-proxmox_automatic_service_user: "ansible"
-proxmox_automatic_service_password: "<filleme>"
-proxmox_automatic_service_ssh_key: "<fille with publickey>"
-proxmox_automatic_service_gecos: "Ansible Serviceaccount"
+
+# System Configuration
+proxmox_automatic_keyboard_layout: "de"
+proxmox_automatic_keyboard_variants: "de (nodeadkeys),us"
+proxmox_automatic_language: "en_US.UTF-8"
+proxmox_automatic_selinux_mode: "enforcing"  # enforcing, permissive, disabled
+proxmox_automatic_firewall_enabled: true
+proxmox_automatic_firewall_services:
+  - "ssh"
+
+# System Services Configuration
+proxmox_automatic_enabled_services:
+  - "sshd"
+  - "rsyslog"
+  - "chronyd"
+  - "NetworkManager"
+proxmox_automatic_disabled_services: []
+
+# Boot and Installation Configuration
+proxmox_automatic_dhcp_enabled: false  # true for DHCP, false for static IP
+
+# Package Installation Configuration
+proxmox_automatic_package_retries: 5
+proxmox_automatic_package_timeout: 20
+proxmox_automatic_install_languages: "en"
+proxmox_automatic_minimal_environment: "@^minimal-environment"
+
+# User Configuration - Hierarchical System
+# Define users to be created during installation
+proxmox_automatic_users:
+  - name: "admin"
+    password: "<filleme>"
+    password_encrypted: false  # Set to true if password is already encrypted
+    gecos: "Admin User"
+    uid: 1000
+    gid: 1000
+    groups: ["wheel"]
+    ssh_key: "<fille with publickey>"
+    sudo_commands: "ALL"  # NOPASSWD: ALL, or specific commands like "/bin/systemctl, /usr/bin/docker"
+    sudo_nopasswd: true
+  - name: "ansible"
+    password: "<filleme>"
+    password_encrypted: false
+    gecos: "Ansible Serviceaccount"
+    uid: 1001
+    gid: 1001
+    groups: []
+    ssh_key: "<fille with publickey>"
+    sudo_commands: "ALL"
+    sudo_nopasswd: true
+
 proxmox_automatic_remove_repos: false
 proxmox_automatic_url_baseos: ""
-proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
+proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=x86_64&repo=BaseOS-9"
 proxmox_automatic_repos:
   - name: baseos
-    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever$rltype
-    gpgcheck: 1
-    enabled: 1
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=x86_64&repo=BaseOS-9
   - name: appstream
-    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=AppStream-$releasever$rltype
-    gpgcheck: 1
-    enabled: 1
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=x86_64&repo=AppStream-9
   - name: extras
-    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=extras-$releasever$rltype
-    gpgcheck: 1
-    enabled: 1
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=x86_64&repo=extras-9
   - name: crb
-    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$releasever$rltype
-    gpgcheck: 1
-    enabled: 1
+    mirrorlist: https://mirrors.rockylinux.org/mirrorlist?arch=x86_64&repo=CRB-9
   - name: epel
-    baseos: https://download.fedoraproject.org/pub/epel/$releasever/Everything/x86_64/
-    gpgcheck: 0
-    enabled: 1
+    baseurl: https://download.fedoraproject.org/pub/epel/9/Everything/x86_64/
+
+# Storage configuration
+proxmox_automatic_storage_config_defaults:
+  - name: virtio0
+    size: "{{ proxmox_automatic_first_disk_size }}"
+    disk: vda
+    bootloader: true
+    partitions:
+      - name: efi
+        mount: /boot/efi
+        size: 1024
+        fstype: efi
+        primary: true
+      - name: boot
+        mount: /boot
+        size: 1024
+        fstype: ext4
+        primary: true
+      - name: pv.root
+        size: 1024
+        grow: true
+        primary: true
+        type: pv
+    vg:
+      - name: system
+        lv:
+          - name: root
+            mount: /
+            size: 1024
+            grow: true
+            fstype: xfs
+          - name: log
+            mount: /var/log
+            size: 4096
+            fstype: xfs
+          - name: swap
+            mount: swap
+            size: 2048
+            fstype: swap
+  - name: virtio1
+    size: 50
+    disk: vdb
+    partitions:
+      - name: pv.data
+        size: 1024
+        grow: true
+        primary: true
+        type: pv
+    vg:
+      - name: content
+        lv:
+          - name: data
+            mount: /data
+            size: 1024
+            fstype: xfs
+            grow: true
 
 proxmox_automatic_packages:
   - qemu-guest-agent
@@ -74,3 +167,5 @@ proxmox_automatic_packages:
   - bash-completion
   - python3
   - python3-pip
+  - unzip
+  - tar
