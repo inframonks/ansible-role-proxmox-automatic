@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2025-08-04
+
+### Added
+- GitHub Actions permissions for security scanning (`security-events: write`)
+- Conditional security scans to prevent fork PR permission issues
+
+### Fixed
+- Security scan upload permissions - resolves "Resource not accessible by integration" errors
+- GitHub Actions security job now properly uploads SARIF results to Security tab
+- Fork pull request compatibility - security scans only run for internal PRs and push events
+
+### Security
+- Enhanced Trivy security scanning with proper GitHub integration
+- Automated SARIF upload to GitHub Security dashboard for vulnerability tracking
+
 ## [1.0.6] - 2025-08-04
 
 ### Added
