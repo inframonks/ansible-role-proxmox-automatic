@@ -53,7 +53,7 @@ jobs:
     - name: Install Ansible ${{ matrix.ansible-version }}
       run: |
         python -m pip install --upgrade pip
-        pip install "ansible>=${{ matrix.ansible-version }},<${{ matrix.ansible-version | float + 0.1 }}"
+        pip install "ansible>=${{ matrix.ansible-version }}"
         pip install ansible-lint yamllint
 
     - name: Install collection dependencies
