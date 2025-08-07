@@ -56,27 +56,7 @@ proxmox_automatic_minimal_environment: "@^minimal-environment"
 
 # User Configuration - Hierarchical System
 # Define users to be created during installation
-proxmox_automatic_users:
-  - name: "admin"
-    password: "<filleme>"
-    password_encrypted: false  # Set to true if password is already encrypted
-    gecos: "Admin User"
-    uid: 1000
-    gid: 1000
-    groups: ["wheel"]
-    ssh_key: "<fille with publickey>"
-    sudo_commands: "ALL"  # NOPASSWD: ALL, or specific commands like "/bin/systemctl, /usr/bin/docker"
-    sudo_nopasswd: true
-  - name: "ansible"
-    password: "<filleme>"
-    password_encrypted: false
-    gecos: "Ansible Serviceaccount"
-    uid: 1001
-    gid: 1001
-    groups: []
-    ssh_key: "<fille with publickey>"
-    sudo_commands: "ALL"
-    sudo_nopasswd: true
+proxmox_automatic_users: []
 
 proxmox_automatic_remove_repos: false
 proxmox_automatic_url_baseos: ""
@@ -131,23 +111,6 @@ proxmox_automatic_storage_config_defaults:
             mount: swap
             size: 2048
             fstype: swap
-  - name: virtio1
-    size: 50
-    disk: vdb
-    partitions:
-      - name: pv.data
-        size: 1024
-        grow: true
-        primary: true
-        type: pv
-    vg:
-      - name: content
-        lv:
-          - name: data
-            mount: /data
-            size: 1024
-            fstype: xfs
-            grow: true
 
 proxmox_automatic_packages:
   - qemu-guest-agent
@@ -171,5 +134,17 @@ proxmox_automatic_packages:
   - bash-completion
   - python3
   - python3-pip
+  - python3-poli
   - unzip
   - tar
+  - gzip
+  - bzip2
+  - xz
+  - lvm2
+  - xfsprogs
+  - e2fsprogs
+  - cifs-utils
+  - nfs-utils
+  - rsync
+  - policycoreutils
+  - selinux-policy

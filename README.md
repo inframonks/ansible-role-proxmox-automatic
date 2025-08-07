@@ -255,10 +255,24 @@ proxmox_automatic_networks:
 
 ```yaml
 proxmox_automatic_users:
-  - name: admin
-    password: "{{ vault_admin_password }}"
+  - name: "admin"
+    password: "<filleme>"
+    password_encrypted: false  # Set to true if password is already encrypted
+    gecos: "Admin User"
+    uid: 1000
+    gid: 1000
     groups: ["wheel"]
-    ssh_key: "ssh-rsa AAAAB3... admin@example.com"
+    ssh_key: "<fille with publickey>"
+    sudo_commands: "ALL"  # NOPASSWD: ALL, or specific commands like "/bin/systemctl, /usr/bin/docker"
+    sudo_nopasswd: true
+  - name: "ansible"
+    password: "<filleme>"
+    password_encrypted: false
+    gecos: "Ansible Serviceaccount"
+    uid: 1001
+    gid: 1001
+    groups: []
+    ssh_key: "<fille with publickey>"
     sudo_commands: "ALL"
     sudo_nopasswd: true
 ```
