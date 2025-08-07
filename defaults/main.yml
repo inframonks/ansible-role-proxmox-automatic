@@ -134,7 +134,6 @@ proxmox_automatic_packages:
   - bash-completion
   - python3
   - python3-pip
-  - python3-poli
   - unzip
   - tar
   - gzip

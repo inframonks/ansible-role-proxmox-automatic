@@ -54,29 +54,18 @@ argument_specs:
       proxmox_automatic_ntp_servers:
         type: list
         elements: str
-        default: ["ntp.atis-systems.com"]
+        default: ["time.cloudflare.com"]
         description: "Liste von NTP-Servern"
       proxmox_automatic_dns_servers:
         type: list
         elements: str
-        default: ["192.168.193.104", "192.168.193.105"]
+        default: ["1.0.0.1", "1.1.1.1"]
         description: "Liste von DNS-Servern"
-      proxmox_automatic_admin_user:
-        type: str
-        default: "svc_ansible_rw"
-        description: "Admin-User, der im Zielsystem erstellt wird"
-      proxmox_automatic_admin_password:
-        type: str
-        required: true
-        description: "Passwort für den Admin-User"
-      proxmox_automatic_admin_ssh_key:
-        type: str
-        required: true
-        description: "SSH Public Key für den Admin-User"
-      proxmox_automatic_admin_gecos:
-        type: str
-        default: "ATIS Admin"
-        description: "Kommentar / GECOS für den Benutzer"
+      proxmox_automatic_users:
+        type: list
+        elements: dict
+        default: []
+        description: "Liste von Benutzern, die während der Installation erstellt werden sollen"
       proxmox_automatic_url_baseurl:
         type: str
         default: ""
@@ -206,4 +195,4 @@ argument_specs:
         type: bool
         default: false
         description: >
-          Aktiviert DHCP für die Netzwerkkonfiguration. Wenn true, werden statische IPs ignoriert.
+          Aktiviert DHCP für die Netzwerkkonfiguration. Wenn true, werden stlab.lenhardt.ccche IPs ignoriert.
