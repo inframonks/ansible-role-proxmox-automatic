@@ -49,7 +49,7 @@
     label: "{{ item.name }}"
 
 - name: "Create VM"
-  community.general.proxmox_kvm:
+  community.proxmox.proxmox_kvm:
     api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"
@@ -86,7 +86,7 @@
   delegate_to: localhost
 
 - name: "Start VM"
-  community.general.proxmox_kvm:
+  community.proxmox.proxmox_kvm:
     api_host: "{{ proxmox_automatic_api_host }}"
     api_user: "{{ proxmox_automatic_api_user }}"
     api_password: "{{ proxmox_automatic_api_password }}"

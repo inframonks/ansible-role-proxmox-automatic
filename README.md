@@ -46,7 +46,7 @@ proxmox_automatic_install_dependencies: true
 ansible-galaxy collection install -r collections/requirements.yml
 ```
 
-**Important:** This role requires `community.general` version 10.x, as version 11+ no longer includes the Proxmox modules.
+**Note:** This role uses the new `community.proxmox` collection, which was split from `community.general` starting with version 11.0.0.
 
 ## 🔧 Quick Start
 
