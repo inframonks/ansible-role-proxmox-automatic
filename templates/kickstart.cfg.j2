@@ -20,9 +20,9 @@ timesource --ntp-server {{ ntp }}
 # Multi-interface network configuration with configurable interface naming
 {% if proxmox_automatic_dhcp_enabled %}
 {%   if proxmox_automatic_use_traditional_interface_names %}
-network --bootproto=dhcp --device=eth0 --onboot=on --hostname=plf-tmpl
+network --bootproto=dhcp --device=eth0 --onboot=on --hostname={{ ansible_host }}
 {%   else %}
-network --bootproto=dhcp --device=enp6s18 --onboot=on --hostname=plf-tmpl
+network --bootproto=dhcp --device=enp6s18 --onboot=on --hostname={{ ansible_host }}
 {%   endif %}
 {% else %}
 {%   for network in proxmox_automatic_networks %}
