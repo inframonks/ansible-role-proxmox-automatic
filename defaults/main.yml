@@ -58,7 +58,6 @@ proxmox_automatic_minimal_environment: "@^minimal-environment"
 # Define users to be created during installation
 proxmox_automatic_users: []
 
-proxmox_automatic_remove_repos: false
 proxmox_automatic_url_baseos: ""
 proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=x86_64&repo=BaseOS-9"
 proxmox_automatic_repos:
