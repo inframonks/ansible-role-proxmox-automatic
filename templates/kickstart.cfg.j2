@@ -19,11 +19,7 @@ timesource --ntp-server {{ ntp }}
 # NETWORK, SELINUX, FIREWALL
 # Multi-interface network configuration with configurable interface naming
 {% if proxmox_automatic_dhcp_enabled %}
-{%   if proxmox_automatic_use_traditional_interface_names %}
-network --bootproto=dhcp --device=eth0 --onboot=on --hostname={{ ansible_host }}
-{%   else %}
 network --bootproto=dhcp --device=enp6s18 --onboot=on --hostname={{ ansible_host }}
-{%   endif %}
 {% else %}
 {%   for network in proxmox_automatic_networks %}
 {%     set device = 'enp6s' + (18 + network.name|replace('net','')|int)|string %}
@@ -34,8 +30,10 @@ network --bootproto=static --device={{ device }} --onboot=on --activate --ip={{ 
 
 network --bootproto=static --device={{ device }} --onboot=on --activate --ip={{ network.ip }} --netmask={{ network.netmask }}{% if network.gateway is defined %} --gateway={{ network.gateway }}{% endif %}
 {%     endif %}
+
 {%   endfor %}
 {% endif %}
+
 
 selinux --{{ proxmox_automatic_selinux_mode }}
 

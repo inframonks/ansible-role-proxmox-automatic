@@ -15,8 +15,11 @@ proxmox_automatic_defaultbridge: "vmbr1"
 # Modern names are required for Rocky Linux 9 and newer distributions
 proxmox_automatic_use_traditional_interface_names: false
 proxmox_automatic_vmid: >-
-  {{ proxmox_automatic_networks[0].vlanid | string ~
-    '%03d' | format(proxmox_automatic_networks[0].ip.split('.')[-1] | int) }}
+  {{ '%04d%03d' % (
+      ((proxmox_automatic_networks | selectattr('name','equalto','net0') | first).vlanid | int),
+      ((proxmox_automatic_networks | selectattr('name','equalto','net0') | first).ip.split('.')[-1] | int)
+  ) }}
+
 # Api Access
 proxmox_automatic_api_user: svc_ansible_rw@pam
 proxmox_automatic_api_password: "<filleme>"
