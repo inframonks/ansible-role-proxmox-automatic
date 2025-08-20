@@ -13,7 +13,6 @@ proxmox_automatic_defaultbridge: "vmbr1"
 # Interface Naming Configuration
 # Set to true for traditional names (eth0, eth1), false for modern names (enp6s18, enp6s19)
 # Modern names are required for Rocky Linux 9 and newer distributions
-proxmox_automatic_use_traditional_interface_names: false
 proxmox_automatic_vmid: >-
   {{ '%04d%03d' % (
       ((proxmox_automatic_networks | selectattr('name','equalto','net0') | first).vlanid | int),
@@ -59,7 +58,16 @@ proxmox_automatic_minimal_environment: "@^minimal-environment"
 
 # User Configuration - Hierarchical System
 # Define users to be created during installation
-proxmox_automatic_users: []
+# proxmox_automatic_users: []
+proxmox_automatic_users:
+  - name: "admin"
+    fullname: "Administrator"
+    shell: "/bin/bash"
+    state: "present"
+    system_account: false
+    password: "<filleme>"
+    authorized_keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3..."
 
 proxmox_automatic_url_baseos: ""
 proxmox_automatic_url_mirrorlist: "http://mirrors.rockylinux.org/mirrorlist?arch=x86_64&repo=BaseOS-9"

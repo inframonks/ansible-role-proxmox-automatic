@@ -526,21 +526,6 @@ playbooks/
 </details>
 
 <details>
-<summary><strong>Interface Names Configuration</strong></summary>
-
-Rocky Linux 9 uses "predictable network interface names" by default. For automation, traditional names are often more practical:
-
-```yaml
-# Traditional names (recommended)
-proxmox_automatic_use_traditional_interface_names: true
-proxmox_automatic_interface_prefix: "eth"
-
-# Modern predictable names
-proxmox_automatic_use_traditional_interface_names: false
-```
-</details>
-
-<details>
 <summary><strong>Repository Configuration</strong></summary>
 
 ```yaml
