@@ -75,6 +75,7 @@ proxmox_automatic_minimal_environment: "@^minimal-environment"
 
 proxmox_automatic_vcpu: 2
 proxmox_automatic_memory: 2048  # IN MB
+proxmox_automatic_dnf_automatic_enabled: true
 
 # User Configuration - Hierarchical System
 # Define users to be created during installation
@@ -141,27 +142,6 @@ proxmox_automatic_storage_config_defaults:
             mount: swap
             size: 2048
             fstype: swap
-  - name: virtio1
-    size: 15
-    disk: vdb
-    partitions:
-      - name: pv.content
-        size: 1024
-        grow: true
-        primary: true
-        type: pv
-    vg:
-      - name: content
-        lv:
-          - name: bin
-            mount: /opt
-            size: 3072
-            fstype: xfs
-          - name: data
-            mount: /var/opt
-            size: 1024
-            grow: true
-            fstype: xfs
 
 proxmox_automatic_packages:
   # Basis

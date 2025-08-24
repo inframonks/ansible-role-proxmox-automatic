@@ -127,6 +127,9 @@ repo --name={{ repo.name }}{% if repo.mirrorlist is defined %} --mirrorlist={{ r
 {{ proxmox_automatic_minimal_environment }}
 kernel-devel
 openssh-server
+{% if proxmox_automatic_dnf_automatic_enabled %}
+dnf-automatic
+{% endif %}
 # Add additional packages here
 {% if proxmox_automatic_packages %}
 {{ proxmox_automatic_packages | join('\n') }}
@@ -323,6 +326,36 @@ Port {{ proxmox_automatic_ssh_port }}
 ListenAddress {{ net0_network.ip }}
 {% endif %}
 EOF
+
+# Configure dnf automatic updates if enabled
+{% if proxmox_automatic_dnf_automatic_enabled %}
+/usr/bin/cat > /etc/dnf/automatic.conf << 'EOF'
+[commands]
+apply_updates = yes
+download_updates = yes
+random_sleep = 900
+system_name = {{ ansible_host }}
+system_package_cache = yes
+upgrade_type = default
+reboot = yes
+reboot_command = shutdown -r +5 "Rebooting after applying automatic package updates"
+
+[emitters]
+emit_via = command_email
+
+[command_email]
+# msmtp reads Headers (-t)
+command_format = /usr/bin/msmtp -t
+email_from = {{ proxmox_automatic_smtp_user }}
+email_to = {{ proxmox_automatic_smtp_root }}
+subject = [{{ ansible_host }}] Automatic package updates applied
+body = Automatic package updates have been applied on {{ ansible_host }}. The system will reboot in 5 minutes if required.
+# Format for passing email content to msmtp
+stdin_format = To: {email_to}\nFrom: {email_from}\nSubject: {subject}\n\n{body}
+EOF
+/usr/bin/systemctl enable --now dnf-automatic.timer
+{% endif %}
+
 
 # Log completion of post-installation
 echo "=== POST-INSTALLATION COMPLETED ===" >> /root/anaconda-ks-post.log
