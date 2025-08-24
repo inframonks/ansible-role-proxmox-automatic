@@ -237,10 +237,13 @@ root: {{ proxmox_automatic_smtp_root }}
 
 EOF
 
-# Replace chrony server entries if NTP servers are defined
+# Configure chrony NTP servers if defined
 {% if proxmox_automatic_ntp_servers %}
+# Remove all existing server lines from chrony.conf
+/usr/bin/sed -i '/^server /d' /etc/chrony.conf
+# Add new NTP servers
 {%   for ntp in proxmox_automatic_ntp_servers %}
-/usr/bin/sed -i 's/^server .*/server {{ ntp }} iburst/' /etc/chrony.conf
+/usr/bin/echo "server {{ ntp }} iburst" >> /etc/chrony.conf
 {%   endfor %}
 {% endif %}
 
@@ -302,22 +305,24 @@ EOF
 {% endif %}
 EOF
 
-# Harden sshd configuration
-/usr/bin/sed -i 's/^#*PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
-/usr/bin/sed -i 's/^#*PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config
-/usr/bin/sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
-/usr/bin/sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-/usr/bin/sed -i 's/^#*ChallengeResponseAuthentication .*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
-/usr/bin/sed -i 's/^#*UsePAM .*/UsePAM yes/' /etc/ssh/sshd_config
-/usr/bin/sed -i 's/^#*X11Forwarding .*/X11Forwarding yes/' /etc/ssh/sshd_config
-/usr/bin/sed -i 's/^#*Subsystem sftp .*/Subsystem sftp internal-sftp/' /etc/ssh/sshd_config
+# Override sshd configuration in own file under /etc/sshd/sshd_config.d/
+mkdir -p /etc/ssh/sshd_config.d/
+cat > /etc/ssh/sshd_config.d/proxmox_automatic.conf << 'EOF'
+PermitRootLogin no
+PermitEmptyPasswords no
+PasswordAuthentication no
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+UsePAM yes
+X11Forwarding yes
+Subsystem sftp internal-sftp
 {% if proxmox_automatic_ssh_port is defined and proxmox_automatic_ssh_port != 22 %}
-/usr/bin/sed -i 's/^#*Port .*/Port {{ proxmox_automatic_ssh_port }}/' /etc/ssh/sshd_config
+Port {{ proxmox_automatic_ssh_port }}
 {% endif %}
 {% if net0_network and net0_network.ip is defined %}
-/usr/bin/sed -i 's/^#*ListenAddress .*/ListenAddress {{ net0_network.ip }}/' /etc/ssh/sshd_config
+ListenAddress {{ net0_network.ip }}
 {% endif %}
-/usr/bin/systemctl restart sshd
+EOF
 
 # Log completion of post-installation
 echo "=== POST-INSTALLATION COMPLETED ===" >> /root/anaconda-ks-post.log

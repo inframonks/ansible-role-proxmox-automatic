@@ -219,7 +219,6 @@ proxmox_automatic_packages:
   # Mails & Kommunikation
   - s-nail
   - msmtp
-  - msmtp-mta
   # Archivierung / Dateihandling
   - dos2unix
   - p7zip
