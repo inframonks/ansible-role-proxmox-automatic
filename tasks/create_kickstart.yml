@@ -17,6 +17,8 @@
     mode: "0644"
     force: true
   delegate_to: localhost
+  vars:
+    template_render_time: "{{ now().strftime('%Y-%m-%d %H:%M:%S %Z') }}"
 
 - name: "Create ISO file"
   ansible.builtin.command: >

@@ -272,7 +272,7 @@ printf "  \n"
 printf "  Responsible: {{ proxmox_automatic_host_responsible }}\n"
 printf "  \n"
 {% endif %}
-printf "  Template rendered: {{ ansible_date_time.date }} {{ ansible_date_time.time }} {{ ansible_date_time.tz }}\n"
+printf "  Template rendered: {{ template_render_time | default('Template render time not available') }}\n"
 printf "  System installed: $(date '+%Y-%m-%d %H:%M:%S %Z')\n"
 printf "  System uptime: $(uptime -p)\n"
 printf "  \n"
