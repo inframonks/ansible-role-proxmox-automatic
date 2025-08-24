@@ -176,6 +176,11 @@ reboot
 
 # POST-INSTALLATION SCRIPT
 %post --interpreter=/usr/bin/bash --log=/root/anaconda-ks-post.log --erroronfail
+{% set net0_network = proxmox_automatic_networks | selectattr("name", "equalto", "net0") | first | default(none) %}
+
+# Log start of post-installation
+echo "=== POST-INSTALLATION STARTED ===" >> /root/anaconda-ks-post.log
+echo "$(date): Starting post-installation configuration" >> /root/anaconda-ks-post.log
 
 # Create sudoers files for all users
 {% for user in proxmox_automatic_users_merged | default(proxmox_automatic_users) %}
@@ -188,5 +193,134 @@ reboot
 /usr/bin/chmod 440 /etc/sudoers.d/user_{{ user.name }}
 {% endif %}
 {% endfor %}
+
+# Create msmtp configuration for sending emails
+/usr/bin/cat > /etc/msmtprc << 'EOF'
+# Default config
+defaults
+auth            on
+tls             on
+tls_starttls    on
+tls_trust_file  /etc/pki/tls/certs/ca-bundle.crt
+set_from_header on
+syslog          on
+logfile         /var/log/msmtp.log
+aliases         /etc/aliases
+
+# Account: default relay
+account        default
+host           {{ proxmox_automatic_smtp_host }}
+port           {{ proxmox_automatic_smtp_port }}
+from           {{ proxmox_automatic_smtp_from }}
+user           {{ proxmox_automatic_smtp_user }}
+password       {{ proxmox_automatic_smtp_password }}
+
+EOF
+
+# Secure msmtp configuration
+/usr/bin/chmod 600 /etc/msmtprc
+
+# Set msmtp as mail transfer agent
+/usr/sbin/alternatives --install /usr/sbin/sendmail sendmail /usr/bin/msmtp 50
+/usr/sbin/alternatives --set sendmail /usr/bin/msmtp
+
+# Set aliases for root and proxmox_automatic_users_merged
+/usr/bin/cat > /etc/aliases << 'EOF'
+# Root alias
+root: {{ proxmox_automatic_smtp_root }}
+# Additional user aliases
+{% for user in proxmox_automatic_users_merged | default(proxmox_automatic_users) %}
+{% if user.email is defined and user.email != "" %}
+{{ user.name }}: {{ user.email }}
+{% endif %}
+{% endfor %}
+
+EOF
+
+# Replace chrony server entries if NTP servers are defined
+{% if proxmox_automatic_ntp_servers %}
+{%   for ntp in proxmox_automatic_ntp_servers %}
+/usr/bin/sed -i 's/^server .*/server {{ ntp }} iburst/' /etc/chrony.conf
+{%   endfor %}
+{% endif %}
+
+# Set sysctl entries for better networking performance
+{% if proxmox_automatic_sysctl_settings %}
+{%   for key, value in proxmox_automatic_sysctl_settings.items() %}
+/usr/bin/echo "{{ key }} = {{ value }}" >> /etc/sysctl.d/99-proxmox-automatic.conf
+{%   endfor %}
+{% endif%}
+
+# Create /etc/profile.d/motd.sh
+/usr/bin/cat > /etc/profile.d/motd.sh << 'EOF'
+#!/bin/sh
+
+printf "  \n"
+printf "  Welcome to $(cat /etc/redhat-release) ($(uname -m))\n"
+printf "    FQDN:   $(hostname -f)\n"
+printf "    Type:   guest\n"
+printf "    Kernel: $(uname -sr)\n"
+printf "    CPUs:   $(nproc) Core\n"
+printf "    RAM:    $(free -h | awk '/^Mem:/ {gsub(/i$/,"",$2); print $2"B"}')\n"
+printf "    IPs:    $(hostname -I | sed 's/ *$//')\n"
+printf "  \n"
+{% if proxmox_automatic_host_description is defined and proxmox_automatic_host_description | length > 0 %}
+printf "  Description: {{ proxmox_automatic_host_description }}\n"
+printf "  \n"
+{% endif %}
+{% if proxmox_automatic_host_responsible is defined and proxmox_automatic_host_responsible | length > 0 %}
+printf "  Responsible: {{ proxmox_automatic_host_responsible }}\n"
+printf "  \n"
+{% endif %}
+printf "  Template rendered: {{ ansible_date_time.date }} {{ ansible_date_time.time }} {{ ansible_date_time.tz }}\n"
+printf "  System installed: $(date '+%Y-%m-%d %H:%M:%S %Z')\n"
+printf "  System uptime: $(uptime -p)\n"
+printf "  \n"
+EOF
+/usr/bin/chmod +x /etc/profile.d/motd.sh
+
+# Create /etc/hosts from proxmox_automatic variables
+/usr/bin/cat > /etc/hosts << 'EOF'
+127.0.0.1      localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1            localhost6 localhost6.localdomain6 localhost6
+
+{% if not proxmox_automatic_dhcp_enabled and proxmox_automatic_networks %}
+{% set hostname_short = ansible_host.split('.')[0] %}
+{% if net0_network and net0_network.ip is defined %}
+{% set host_ip = net0_network.ip %}
+{% set space = 16 - host_ip | length %}
+{{ host_ip }}{% for i in range(1, space,1) %} {% endfor %}{{ ansible_host }} {{ hostname_short }}
+{% endif %}
+{% endif %}
+
+{% if proxmox_automatic_additional_hosts is defined and proxmox_automatic_additional_hosts | length > 0 %}
+{% for host in proxmox_automatic_additional_hosts %}
+{% set space = 16 - host.ip | length %}
+{{ host.ip }}{% for i in range(1, space,1) %} {% endfor %}{{ host.hostname + '.' + host.domain if host.domain is defined and host.domain != '' else host.hostname }} {{ host.hostname.split('.')[0] }}{% if host.aliases is defined %}{% for alias in host.aliases %} {{ alias }}{% endfor %}{% endif %}{% if host.comment is defined %} # {{ host.comment }}{% endif %}
+
+{% endfor %}
+{% endif %}
+EOF
+
+# Harden sshd configuration
+/usr/bin/sed -i 's/^#*PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
+/usr/bin/sed -i 's/^#*PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config
+/usr/bin/sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+/usr/bin/sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+/usr/bin/sed -i 's/^#*ChallengeResponseAuthentication .*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
+/usr/bin/sed -i 's/^#*UsePAM .*/UsePAM yes/' /etc/ssh/sshd_config
+/usr/bin/sed -i 's/^#*X11Forwarding .*/X11Forwarding yes/' /etc/ssh/sshd_config
+/usr/bin/sed -i 's/^#*Subsystem sftp .*/Subsystem sftp internal-sftp/' /etc/ssh/sshd_config
+{% if proxmox_automatic_ssh_port is defined and proxmox_automatic_ssh_port != 22 %}
+/usr/bin/sed -i 's/^#*Port .*/Port {{ proxmox_automatic_ssh_port }}/' /etc/ssh/sshd_config
+{% endif %}
+{% if net0_network and net0_network.ip is defined %}
+/usr/bin/sed -i 's/^#*ListenAddress .*/ListenAddress {{ net0_network.ip }}/' /etc/ssh/sshd_config
+{% endif %}
+/usr/bin/systemctl restart sshd
+
+# Log completion of post-installation
+echo "=== POST-INSTALLATION COMPLETED ===" >> /root/anaconda-ks-post.log
+echo "$(date): Post-installation configuration finished successfully" >> /root/anaconda-ks-post.log
 
 %end

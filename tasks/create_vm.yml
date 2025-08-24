@@ -62,8 +62,12 @@
     sockets: "{{ proxmox_automatic_sockets | default(1) }}"
     state: "{{ proxmox_automatic_state | default('present') }}"
     ide:
-      ide2: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/{{ proxmox_automatic_iso_name | default('rocky9.6-ks') }}.iso"
-      ide3: "media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/ks-{{ ansible_host }}.iso"
+      ide2: >-
+        media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/{{
+        proxmox_automatic_iso_name | default('rocky9.6-ks') }}.iso
+      ide3: >-
+        media=cdrom,{{ proxmox_automatic_storage | default(proxmox_automatic_pve_iso_storage) }}:iso/ks-{{
+        ansible_host }}.iso
     bios: ovmf
     efidisk0:
       storage: "{{ proxmox_automatic_storage | default(proxmox_automatic_pve_vm_storage) }}"
@@ -80,10 +84,22 @@
     scsihw: "{{ proxmox_automatic_scsi_hw | default('virtio-scsi-single') }}"
     machine: "{{ proxmox_automatic_machine | default('q35') }}"
     hotplug: "{{ proxmox_automatic_hotplug | default('disk') }}"
-    startup: "{{ 'order=' + (proxmox_automatic_boot_order | default(1) | string) + ',up=' + (proxmox_automatic_boot_order_up_wait | default(2) | string) + ',down=' + (proxmox_automatic_boot_order_down_wait | default(3) | string) if proxmox_automatic_startup_order is defined else omit }}"
+    startup: >-
+      {{ 'order=' + (proxmox_automatic_boot_order | default(1) | string) + ',up=' +
+      (proxmox_automatic_boot_order_up_wait | default(2) | string) + ',down=' +
+      (proxmox_automatic_boot_order_down_wait | default(3) | string)
+      if proxmox_automatic_startup_order is defined else omit }}
     agent: enabled=1
     pool: "{{ proxmox_automatic_vm_pool | default(omit) }}"
   delegate_to: localhost
+  throttle: "{{ proxmox_automatic_create_vm_throttle | default(1) }}"
+  retries: "{{ proxmox_automatic_create_vm_retries | default(3) }}"
+  delay: "{{ proxmox_automatic_create_vm_retry_delay | default(5) }}"
+
+- name: "Wait after VM creation to reduce cluster load"
+  ansible.builtin.pause:
+    seconds: "{{ proxmox_automatic_create_vm_pause | default(10) }}"
+  when: proxmox_automatic_create_vm_pause is defined or proxmox_automatic_create_vm_throttle is defined
 
 - name: "Start VM"
   community.proxmox.proxmox_kvm:
@@ -94,3 +110,6 @@
     vmid: "{{ proxmox_automatic_vmid }}"
     state: "started"
   delegate_to: localhost
+  throttle: "{{ proxmox_automatic_start_vm_throttle | default(2) }}"
+  retries: "{{ proxmox_automatic_start_vm_retries | default(3) }}"
+  delay: "{{ proxmox_automatic_start_vm_retry_delay | default(3) }}"

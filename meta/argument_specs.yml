@@ -2,197 +2,424 @@
 argument_specs:
   main:
     short_description: "Automated VM provisioning with Kickstart ISO on Proxmox VE"
-    description: >
+    description: >-
       This role generates individual Kickstart files and ISOs,
-      lädt sie auf einen Proxmox-Node hoch und provisioniert eine VM
-      inklusive zusätzlicher Disks und Netzwerkkarten.
+      uploads them to a Proxmox node and provisions VMs
+      including additional disks and network interfaces.
     options:
+      # Core Configuration
+      proxmox_automatic_install_dependencies:
+        type: bool
+        default: false
+        description: "Automatically install dependencies (xorriso, syslinux) on Ansible Controller"
+
       proxmox_automatic_files_dir:
         type: str
         default: "kickstart-files"
-        description: "Pfad für Kickstart-Dateien"
+        description: "Path for Kickstart files"
+
       proxmox_automatic_iso_dir:
         type: str
         default: "kickstart-isos"
-        description: "Pfad für erzeugte ISO-Dateien"
+        description: "Path for generated ISO files"
+
       proxmox_automatic_iso_name:
         type: str
         default: "rocky9.6-ks"
-        description: "Name der Kickstart-ISO-Datei (ohne .iso)"
-      proxmox_automatic_first_disk_size:
-        type: str
-        default: "20"
-        description: "Größe der ersten Festplatte in GB (nur Zahl)"
-      proxmox_automatic_pve_iso_storage:
-        type: str
-        default: "cephfs"
-        description: "Proxmox Storage für ISOs"
-      proxmox_automatic_pve_vm_storage:
-        type: str
-        default: "volumes"
-        description: "Proxmox Storage für VM-Festplatten"
-      proxmox_automatic_defaultbridge:
-        type: str
-        default: "vmbr1"
-        description: "Standard-Bridge für Netzwerkkarten"
+        description: "Name of the Kickstart ISO file (without .iso)"
+
+      # Proxmox API Configuration
       proxmox_automatic_api_host:
         type: str
         required: true
-        description: "FQDN oder IP des Proxmox API-Hosts"
+        description: "FQDN or IP of the Proxmox API host"
+
       proxmox_automatic_api_user:
         type: str
         default: "svc_ansible_rw@pam"
-        description: "Benutzername für Proxmox API"
+        description: "Username for Proxmox API"
+
       proxmox_automatic_api_password:
         type: str
         required: true
-        description: "Passwort für Proxmox API"
-      proxmox_automatic_timezone:
-        type: str
-        default: "Europe/Berlin"
-        description: "Zeitzone der VM"
-      proxmox_automatic_ntp_servers:
-        type: list
-        elements: str
-        default: ["time.cloudflare.com"]
-        description: "Liste von NTP-Servern"
-      proxmox_automatic_dns_servers:
-        type: list
-        elements: str
-        default: ["1.0.0.1", "1.1.1.1"]
-        description: "Liste von DNS-Servern"
-      proxmox_automatic_users:
-        type: list
-        elements: dict
-        default: []
-        description: "Liste von Benutzern, die während der Installation erstellt werden sollen"
-      proxmox_automatic_url_baseurl:
-        type: str
-        default: ""
-        description: "Basis-URL für Rocky Linux (z. B. http://mirror.example.com/rocky/9/updates/x86_64/Packages/)"
-      proxmox_automatic_url_mirrorlist:
-        type: str
-        default: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
-        description: "Mirrorlist-URL für Rocky Linux BaseOS"
-      proxmox_automatic_repos:
-        type: list
-        elements: dict
-        default: []
-        description: "Liste zusätzlicher Repositories"
+        description: "Password for Proxmox API"
+
+      # VM Configuration
       proxmox_automatic_vmid:
         type: int
-        required: true
-        description: "Proxmox VM-ID"
+        required: false
+        description: "Proxmox VM ID"
+
       proxmox_automatic_hypervisor:
         type: str
         required: true
-        description: "Proxmox Node (z. B. srv-hyp-01.local)"
+        description: "Proxmox Node (e.g. srv-hyp-01.local)"
+
       proxmox_automatic_memory:
         type: int
         default: 2048
-        description: "RAM der VM in MB"
+        description: "VM RAM in MB"
+
       proxmox_automatic_vcpu:
         type: int
         default: 2
-        description: "vCPUs"
+        description: "Number of vCPUs"
+
       proxmox_automatic_cpu_type:
         type: str
         default: "x86-64-v3"
-        description: "CPU-Typ"
+        description: "CPU type"
+
       proxmox_automatic_sockets:
         type: int
         default: 1
-        description: "CPU-Sockelanzahl"
+        description: "Number of CPU sockets"
+
       proxmox_automatic_state:
         type: str
         choices: ["present", "absent"]
         default: "present"
-        description: "VM-Zustand"
-      proxmox_automatic_storage:
-        type: str
-        required: false
-        description: "Optional: Override Storage für VM und ISO"
+        description: "VM state"
+
       proxmox_automatic_kvm:
         type: bool
         default: true
-        description: "KVM aktivieren"
+        description: "Enable KVM"
+
       proxmox_automatic_os_type:
         type: str
         default: "l26"
-        description: "Betriebssystemtyp"
+        description: "Operating system type"
+
       proxmox_automatic_onboot:
         type: bool
         default: true
-        description: "Autostart aktivieren"
+        description: "Enable autostart"
+
       proxmox_automatic_scsi_hw:
         type: str
         default: "virtio-scsi-single"
-        description: "SCSI-Controller Typ"
+        description: "SCSI controller type"
+
       proxmox_automatic_machine:
         type: str
         default: "q35"
-        description: "Maschinentyp"
+        description: "Machine type"
+
       proxmox_automatic_hotplug:
         type: str
         default: "disk"
-        description: "Hotplug-Konfiguration"
-      proxmox_automatic_boot_order:
-        type: int
-        default: 1
-        description: "Startreihenfolge"
-      proxmox_automatic_boot_order_up_wait:
-        type: int
-        default: 3
-        description: "Wartezeit nach Start (s)"
-      proxmox_automatic_boot_order_down_wait:
-        type: int
-        default: 3
-        description: "Wartezeit nach Shutdown (s)"
+        description: "Hotplug configuration"
+
+      # Storage Configuration
+      proxmox_automatic_storage:
+        type: str
+        required: false
+        description: "Optional: Override storage for VM and ISO"
+
+      proxmox_automatic_pve_iso_storage:
+        type: str
+        default: "cephfs"
+        description: "Proxmox storage for ISOs"
+
+      proxmox_automatic_pve_vm_storage:
+        type: str
+        default: "volumes"
+        description: "Proxmox storage for VM disks"
+
+      proxmox_automatic_first_disk_size:
+        type: str
+        default: "20"
+        description: "Size of first disk in GB (number only)"
+
+      proxmox_automatic_storage_config_defaults:
+        type: list
+        elements: dict
+        default: []
+        description: "Default storage configuration for disks"
+
       proxmox_automatic_disks:
         type: list
         elements: dict
         default: []
-        description: >
-          Liste zusätzlicher Festplatten (name, size, storage)
+        description: "List of additional disks (name, size, storage)"
+
+      # Network Configuration
+      proxmox_automatic_defaultbridge:
+        type: str
+        default: "vmbr1"
+        description: "Default bridge for network cards"
+
       proxmox_automatic_networks:
         type: list
         elements: dict
         default: []
-        description: >
-          Liste zusätzlicher Netzwerkkarten (bridge, vlanid, mtu, mac, model)
-      proxmox_automatic_vm_pool:
+        required: false
+        description: "List of additional network cards (bridge, vlanid, mtu, mac, model)"
+
+      proxmox_automatic_dhcp_enabled:
+        type: bool
+        default: false
+        description: "Enable DHCP for network configuration. When true, static IPs are ignored."
+
+      proxmox_automatic_dns_servers:
+        type: list
+        elements: str
+        default: ["1.0.0.1", "1.1.1.1"]
+        description: "List of DNS servers"
+
+      # Boot Configuration
+      proxmox_automatic_boot_order:
+        type: int
+        default: 1
+        description: "Boot order"
+
+      proxmox_automatic_boot_order_up_wait:
+        type: int
+        default: 3
+        description: "Wait time after start (seconds)"
+
+      proxmox_automatic_boot_order_down_wait:
+        type: int
+        default: 3
+        description: "Wait time after shutdown (seconds)"
+
+      # System Configuration
+      proxmox_automatic_timezone:
         type: str
-        default: "omit"
-        description: >
-          Optionaler Pool, in dem die VM eingetragen wird. Wird nur verwendet, wenn angegeben.
+        default: "Europe/Berlin"
+        description: "VM timezone"
+
+      proxmox_automatic_language:
+        type: str
+        default: "en_US.UTF-8"
+        description: "System language"
+
+      proxmox_automatic_keyboard_layout:
+        type: str
+        default: "de"
+        description: "Keyboard layout"
+
+      proxmox_automatic_keyboard_variants:
+        type: str
+        default: "de (nodeadkeys),us"
+        description: "Keyboard variants"
+
+      proxmox_automatic_ntp_servers:
+        type: list
+        elements: str
+        default: ["time.cloudflare.com"]
+        description: "List of NTP servers"
+
+      proxmox_automatic_selinux_mode:
+        type: str
+        choices: ["enforcing", "permissive", "disabled"]
+        default: "enforcing"
+        description: "SELinux mode"
+
+      # Security Configuration
+      proxmox_automatic_firewall_enabled:
+        type: bool
+        default: true
+        description: "Enable firewall"
+
+      proxmox_automatic_firewall_services:
+        type: list
+        elements: str
+        default: ["ssh"]
+        description: "Firewall services to allow"
+
+      proxmox_automatic_ssh_port:
+        type: int
+        default: 22
+        description: "SSH port for the VM"
+
+      # User Management
+      proxmox_automatic_users:
+        type: list
+        elements: dict
+        default: []
+        description: "List of users to be created during installation"
+
       proxmox_automatic_service_user:
         type: str
         default: "ansible"
-        description: >
-          Ansible Serviceaccount, der im Zielsystem erstellt wird.
+        description: "Ansible service account created in the target system"
+
       proxmox_automatic_service_password:
         type: str
         default: ""
-        description: >
-          Passwort für den Ansible Serviceaccount.
+        description: "Password for the Ansible service account"
+
       proxmox_automatic_service_ssh_key:
         type: str
         default: ""
-        description: >
-          SSH Public Key für den Ansible Serviceaccount.
+        description: "SSH public key for the Ansible service account"
+
       proxmox_automatic_service_gecos:
         type: str
         default: "Ansible Serviceaccount"
-        description: >
-          Kommentar / GECOS für den Ansible Serviceaccount
+        description: "Comment/GECOS for the Ansible service account"
+
+      # Host Management
+      proxmox_automatic_host_description:
+        type: str
+        default: "Managed by Ansible"
+        description: "Host description"
+
+      proxmox_automatic_host_responsible:
+        type: str
+        default: "admin@example.com"
+        description: "Person responsible for the host"
+
+      proxmox_automatic_additional_hosts:
+        type: list
+        elements: dict
+        default: []
+        description: "Additional hosts entries for /etc/hosts"
+
+      # SMTP Configuration
+      proxmox_automatic_smtp_host:
+        type: str
+        default: "smtp.example.com"
+        description: "SMTP server for email delivery"
+
+      proxmox_automatic_smtp_port:
+        type: int
+        default: 587
+        description: "SMTP port"
+
+      proxmox_automatic_smtp_from:
+        type: str
+        default: "noreply@example.com"
+        description: "Sender email address"
+
+      proxmox_automatic_smtp_user:
+        type: str
+        default: "<fillme>"
+        description: "SMTP username"
+
+      proxmox_automatic_smtp_password:
+        type: str
+        default: "<fillme>"
+        description: "SMTP password"
+
+      proxmox_automatic_smtp_root:
+        type: str
+        default: "<fillme>"
+        description: "Email address for root notifications"
+
+      # Services Configuration
+      proxmox_automatic_enabled_services:
+        type: list
+        elements: str
+        default: ["sshd", "rsyslog", "chronyd", "NetworkManager"]
+        description: "Services to enable at boot"
+
+      proxmox_automatic_disabled_services:
+        type: list
+        elements: str
+        default: []
+        description: "Services to disable"
+
+      # Package Management
       proxmox_automatic_packages:
         type: list
         elements: str
         default: []
-        description: >
-          Liste von Paketen, die im Kickstart installiert werden sollen.
-      proxmox_automatic_dhcp_enabled:
-        type: bool
-        default: false
-        description: >
-          Aktiviert DHCP für die Netzwerkkonfiguration. Wenn true, werden stlab.lenhardt.ccche IPs ignoriert.
+        description: "List of packages to install in Kickstart"
+
+      proxmox_automatic_package_retries:
+        type: int
+        default: 5
+        description: "Number of retries for package installation"
+
+      proxmox_automatic_package_timeout:
+        type: int
+        default: 20
+        description: "Timeout for package installation (seconds)"
+
+      proxmox_automatic_minimal_environment:
+        type: str
+        default: "@^minimal-environment"
+        description: "Minimal environment for installation"
+
+      proxmox_automatic_install_languages:
+        type: str
+        default: "en"
+        description: "Installed language packages"
+
+      # Repository Configuration
+      proxmox_automatic_repos:
+        type: list
+        elements: dict
+        default: []
+        description: "List of additional repositories"
+
+      proxmox_automatic_url_baseurl:
+        type: str
+        default: ""
+        description: "Base URL for Rocky Linux (e.g. http://mirror.example.com/rocky/9/updates/x86_64/Packages/)"
+
+      proxmox_automatic_url_baseos:
+        type: str
+        default: ""
+        description: "BaseOS URL (optional)"
+
+      proxmox_automatic_url_mirrorlist:
+        type: str
+        default: "http://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=BaseOS-$releasever"
+        description: "Mirrorlist URL for Rocky Linux BaseOS"
+
+      # System Tuning
+      proxmox_automatic_sysctl_settings:
+        type: dict
+        default: {}
+        description: "Sysctl settings for better network performance"
+
+      # Pool Management
+      proxmox_automatic_vm_pool:
+        type: str
+        default: "omit"
+        description: "Optional pool where the VM will be registered. Only used if specified."
+
+      # Performance Tuning
+      proxmox_automatic_create_vm_throttle:
+        type: int
+        default: 3
+        description: "Number of concurrent VM creations"
+
+      proxmox_automatic_create_vm_retries:
+        type: int
+        default: 3
+        description: "Retries for VM creation"
+
+      proxmox_automatic_create_vm_retry_delay:
+        type: int
+        default: 5
+        description: "Delay between retries (seconds)"
+
+      proxmox_automatic_create_vm_pause:
+        type: int
+        default: 3
+        description: "Pause after VM creation (seconds)"
+
+      proxmox_automatic_start_vm_throttle:
+        type: int
+        default: 3
+        description: "Number of concurrent VM starts"
+
+      proxmox_automatic_start_vm_retries:
+        type: int
+        default: 3
+        description: "Retries for VM start"
+
+      proxmox_automatic_start_vm_retry_delay:
+        type: int
+        default: 3
+        description: "Delay between start retries (seconds)"
+
+      proxmox_automatic_start_vm_pause:
+        type: int
+        default: 5
+        description: "Pause after VM start (seconds)"

@@ -10,14 +10,6 @@ proxmox_automatic_first_disk_size: "20"  # IN GB
 proxmox_automatic_pve_iso_storage: "cephfs"
 proxmox_automatic_pve_vm_storage: "volumes"
 proxmox_automatic_defaultbridge: "vmbr1"
-# Interface Naming Configuration
-# Set to true for traditional names (eth0, eth1), false for modern names (enp6s18, enp6s19)
-# Modern names are required for Rocky Linux 9 and newer distributions
-proxmox_automatic_vmid: >-
-  {{ '%04d%03d' % (
-      ((proxmox_automatic_networks | selectattr('name','equalto','net0') | first).vlanid | int),
-      ((proxmox_automatic_networks | selectattr('name','equalto','net0') | first).ip.split('.')[-1] | int)
-  ) }}
 
 # Api Access
 proxmox_automatic_api_user: svc_ansible_rw@pam
@@ -25,10 +17,35 @@ proxmox_automatic_api_password: "<filleme>"
 # Kickstart Configuration
 proxmox_automatic_timezone: "Europe/Berlin"
 proxmox_automatic_ntp_servers:
-  - "time.cloudflare.com"
+  - "0.de.pool.ntp.org"
+  - "1.de.pool.ntp.org"
+  - "2.de.pool.ntp.org"
+  - "3.de.pool.ntp.org"
 proxmox_automatic_dns_servers:
   - "1.0.0.1"
   - "1.1.1.1"
+
+proxmox_automatic_ssh_port: 22
+proxmox_automatic_smtp_host: "smtp.example.com"
+proxmox_automatic_smtp_port: 587
+proxmox_automatic_smtp_from: "noreply@example.com"
+proxmox_automatic_smtp_user: "<fillme>"
+proxmox_automatic_smtp_password: "<fillme>"
+proxmox_automatic_smtp_root: "<fillme>"
+
+proxmox_automatic_host_description: "Managed by Ansible"
+proxmox_automatic_host_responsible: "admin@example.com"
+
+proxmox_automatic_additional_hosts:
+  - ip: "192.168.1.20"
+    hostname: "database01.example.com"
+    comment: "Database Server"
+
+proxmox_automatic_sysctl_settings:
+  net.ipv4.ip_forward: 1
+  net.ipv4.conf.all.rp_filter: 1
+  vm.swappiness: 10
+  vm.vfs_cache_pressure: 50
 
 # System Configuration
 proxmox_automatic_keyboard_layout: "de"
@@ -55,6 +72,9 @@ proxmox_automatic_package_retries: 5
 proxmox_automatic_package_timeout: 20
 proxmox_automatic_install_languages: "en"
 proxmox_automatic_minimal_environment: "@^minimal-environment"
+
+proxmox_automatic_vcpu: 2
+proxmox_automatic_memory: 2048  # IN MB
 
 # User Configuration - Hierarchical System
 # Define users to be created during installation
@@ -121,39 +141,112 @@ proxmox_automatic_storage_config_defaults:
             mount: swap
             size: 2048
             fstype: swap
+  - name: virtio1
+    size: 15
+    disk: vdb
+    partitions:
+      - name: pv.content
+        size: 1024
+        grow: true
+        primary: true
+        type: pv
+    vg:
+      - name: content
+        lv:
+          - name: bin
+            mount: /opt
+            size: 3072
+            fstype: xfs
+          - name: data
+            mount: /var/opt
+            size: 1024
+            grow: true
+            fstype: xfs
 
 proxmox_automatic_packages:
-  - qemu-guest-agent
-  - vim
-  - htop
-  - tmux
-  - git
-  - wget
-  - curl
-  - jq
-  - bind-utils
-  - net-tools
-  - lsof
-  - strace
-  - tcpdump
-  - nmap-ncat
-  - telnet
-  - nc
-  - mtr
-  - iperf3
+  # Basis
   - bash-completion
+  - bzip2
+  - curl
+  - e2fsprogs
+  - epel-release
+  - fontconfig
+  - git
+  - gzip
+  - jq
+  - lsof
+  - lvm2
+  - net-tools
+  - policycoreutils
   - python3
   - python3-pip
-  - unzip
-  - tar
-  - gzip
-  - bzip2
-  - xz
-  - lvm2
-  - xfsprogs
-  - e2fsprogs
-  - cifs-utils
-  - nfs-utils
+  - python3-policycoreutils
+  - qemu-guest-agent
   - rsync
-  - policycoreutils
   - selinux-policy
+  - tar
+  - unzip
+  - vim
+  - vim-enhanced
+  - wget
+  - xfsprogs
+  - xz
+  # Netzwerk / Debug
+  - bind-utils
+  - cifs-utils
+  - expect
+  - iftop
+  - iperf3
+  - ipmitool
+  - mtr
+  - nc
+  - net-snmp-utils
+  - nfs-utils
+  - nmap
+  - nmap-ncat
+  - swaks
+  - tcpdump
+  - telnet
+  - whois
+  # Monitoring & Diagnose
+  - dstat
+  - htop
+  - iotop
+  - strace
+  - tig
+  - tmux
+  - tree
+  # Mails & Kommunikation
+  - s-nail
+  - msmtp
+  - msmtp-mta
+  # Archivierung / Dateihandling
+  - dos2unix
+  - p7zip
+  # Packete entfernen
+  - -cockpit
+  - -postfix
+  - -sendmail
+
+# Initialize empty network list for merging
+proxmox_automatic_networks: []
+
+# VM Creation Performance Tuning
+# Limit number of simultaneous VM creations (throttle)
+proxmox_automatic_create_vm_throttle: 3
+# Number of retries if VM creation fails
+proxmox_automatic_create_vm_retries: 3
+# Delay between retries (seconds)
+proxmox_automatic_create_vm_retry_delay: 5
+# Pause after VM creation to reduce cluster load (seconds)
+proxmox_automatic_create_vm_pause: 3
+
+# VM Start Performance Tuning
+# Limit number of simultaneous VM starts (throttle)
+proxmox_automatic_start_vm_throttle: 3
+# Number of retries if VM start fails
+proxmox_automatic_start_vm_retries: 3
+# Delay between retries (seconds)
+proxmox_automatic_start_vm_retry_delay: 3
+# Pause after VM start to reduce cluster load (seconds)
+proxmox_automatic_start_vm_pause: 5
