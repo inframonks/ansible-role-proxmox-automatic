@@ -3,9 +3,9 @@ dependencies: []
 
 galaxy_info:
   role_name: proxmox_automatic
-  author: inframonks
+  author: Dominik Lenhardt <dominik.lenhardt@inframonks.com>
   description: Automatically create VMs on Proxmox VE with custom Kickstart configurations
-  company: inframonks
+  company: InfraMonks GmbH
   license: MIT
   min_ansible_version: "2.10"
   platforms:
